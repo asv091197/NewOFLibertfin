@@ -1,0 +1,33 @@
+<?php
+// Copiar como config/config.php y llenar. Este archivo NUNCA va al repo.
+// Vive fuera de public/, así que no es alcanzable por web aunque falle .htaccess.
+return [
+    'bd' => [
+        'host'    => 'localhost',
+        'usuario' => '',
+        'clave'   => '',
+        'principal' => 'juanc141_ventas',
+        // 'puerto' => 3306,   // solo si MySQL no está en el puerto de siempre
+    ],
+
+    // La API (/api/v1). Las llaves se crean en Ajustes → API.
+    // Peticiones por minuto que acepta cada llave; pasado eso contesta 429.
+    'api' => [
+        'por_minuto' => 120,
+    ],
+    // Zona horaria. Tiene que ser la misma en PHP y en MySQL: si no, el
+    // folio de la venta y su fecha quedan desfasados, y una venta de las
+    // 18:00 de fin de mes se registra en el mes siguiente.
+    'zona'     => 'America/Mexico_City',
+    'zona_sql' => '-06:00',
+
+    // La página pública (landing) y sus documentos legales. El registro
+    // enlaza aquí; vacíos, simplemente no aparecen los enlaces.
+    'sitio' => [
+        'landing'    => '',   // https://libertyfin.mx
+        'terminos'   => '',   // https://libertyfin.mx/terminos
+        'privacidad' => '',   // https://libertyfin.mx/privacidad
+    ],
+
+    'depurar' => false,   // true solo en local
+];

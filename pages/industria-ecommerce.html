@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-commerce — Libertyfin — Libertyfin</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+body { padding-top: 64px; }
+
+/* HERO INDUSTRIA */
+.ind-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 540px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
+.ind-hero-left {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  min-height: 480px;
+}
+.ind-hero-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ind-hero-img-placeholder {
+  width: 100%; height: 100%; min-height: 480px;
+  background: #eff6ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 96px;
+}
+.ind-hero-right {
+  padding: 64px 56px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.ind-eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 14px; border-radius: 100px;
+  background: var(--green-light); border: 1px solid rgba(34,197,94,0.3);
+  font-size: 12px; font-weight: 700; color: var(--green-d);
+  margin-bottom: 20px; width: fit-content;
+  text-transform: uppercase; letter-spacing: 0.8px;
+}
+.ind-title {
+  font-family: "Nunito", sans-serif;
+  font-size: clamp(28px, 3.5vw, 44px);
+  font-weight: 900; letter-spacing: -1.5px;
+  color: var(--ink); line-height: 1.1; margin-bottom: 14px;
+}
+.ind-title em { font-style: italic; color: var(--green); }
+.ind-sub {
+  font-size: 15px; color: var(--ink3); line-height: 1.7;
+  margin-bottom: 36px; max-width: 400px;
+}
+
+/* BENEFICIOS con íconos — estilo imagen referencia */
+.benefits-list { display: flex; flex-direction: column; gap: 0; margin-bottom: 36px; }
+.benefit-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s;
+  cursor: default;
+}
+.benefit-row:first-child { border-top: 1px solid var(--border); }
+.benefit-row:hover { padding-left: 8px; }
+.benefit-icon-wrap {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: #eff6ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.benefit-row:hover .benefit-icon-wrap { transform: scale(1.08); }
+.benefit-text-title {
+  font-family: "Nunito", sans-serif;
+  font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 2px;
+}
+.benefit-text-desc { font-size: 13px; color: var(--ink3); line-height: 1.5; }
+
+.ind-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* BANNER VERDE — como imagen referencia */
+.ind-banner {
+  background: var(--green);
+  padding: 28px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+}
+.ind-banner-text {
+  font-family: "Nunito", sans-serif;
+  font-size: clamp(16px, 2.5vw, 22px);
+  font-weight: 800; color: white; line-height: 1.4;
+}
+.ind-banner-sub { font-size: 13.5px; color: rgba(255,255,255,0.75); margin-top: 4px; }
+.ind-banner-btn {
+  padding: 12px 28px; border-radius: 10px;
+  background: white; color: var(--green-d);
+  font-family: "Poppins", sans-serif; font-size: 14px; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.ind-banner-btn:hover { background: var(--green-light); transform: translateY(-1px); }
+
+/* OTRAS INDUSTRIAS */
+.other-section { padding: 64px 24px; background: var(--bg); text-align: center; }
+.other-grid {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 12px; margin-top: 36px; max-width: 900px; margin-left: auto; margin-right: auto;
+}
+.other-card {
+  background: white; border: 1px solid var(--border); border-radius: 14px;
+  padding: 20px 14px; text-decoration: none; color: inherit;
+  transition: all 0.2s; display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.other-card:hover { border-color: var(--green); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(34,197,94,0.1); }
+.other-icon { font-size: 30px; }
+.other-name { font-family: "Nunito", sans-serif; font-size: 13.5px; font-weight: 800; color: var(--ink); }
+
+@media(max-width:900px) {
+  .ind-hero { grid-template-columns: 1fr; }
+  .ind-hero-right { padding: 40px 28px; }
+  .ind-banner { flex-direction: column; text-align: center; padding: 28px 24px; }
+  .other-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="lf-nav-placeholder"></div>
+
+<!-- HERO -->
+<section class="ind-hero">
+  <div class="ind-hero-left">
+    <!--
+      IMAGEN DE INDUSTRIA:
+      Tamaño recomendado: 720 x 540 px
+      Formato: JPG o PNG
+      Nombre del archivo: ind-ecommerce.jpg
+      Colócalo en la carpeta img/
+    -->
+    <img class="ind-hero-img"
+         src="../img/ind-ecommerce.jpg"
+         alt="E-commerce — Libertyfin"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="ind-hero-img-placeholder" style="display:none">🛍️</div>
+  </div>
+  <div class="ind-hero-right">
+    <div class="ind-eyebrow">🛍️ E-commerce</div>
+    <h1 class="ind-title">Vende en línea<br><em>sin complicaciones.</em></h1>
+    <p class="ind-sub">Conecta tu tienda en línea con MercadoLibre, Shopify y más. Un solo inventario para todos tus canales de venta.</p>
+
+    <div class="benefits-list">
+      <div class="benefit-row">
+        <div class="benefit-icon-wrap">🔄</div>
+        <div>
+          <div class="benefit-text-title">Sincronización automática de stock</div>
+          <div class="benefit-text-desc">Un solo inventario actualizado en todos tus canales: tienda física, MercadoLibre y Shopify.</div>
+        </div>
+      </div>
+      <div class="benefit-row">
+        <div class="benefit-icon-wrap">📦</div>
+        <div>
+          <div class="benefit-text-title">Cero errores de sobreventa</div>
+          <div class="benefit-text-desc">Cuando se agota un producto, todos los canales se actualizan al instante automáticamente.</div>
+        </div>
+      </div>
+      <div class="benefit-row">
+        <div class="benefit-icon-wrap">👥</div>
+        <div>
+          <div class="benefit-text-title">Historial de ventas y clientes</div>
+          <div class="benefit-text-desc">Centraliza los pedidos de todos tus canales en un solo panel de control.</div>
+        </div>
+      </div>
+      <div class="benefit-row">
+        <div class="benefit-icon-wrap">📄</div>
+        <div>
+          <div class="benefit-text-title">Facturación CFDI integrada</div>
+          <div class="benefit-text-desc">Emite facturas al SAT directamente desde cada venta, sin pasos adicionales.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ind-ctas">
+      <a class="btn btn-green" href="registro">Registra tu empresa</a>
+      <a class="btn btn-ghost" href="precios">Ver precios</a>
+    </div>
+  </div>
+</section>
+
+<!-- BANNER VERDE -->
+<div class="ind-banner">
+  <div>
+    <div class="ind-banner-text">Ideal para tiendas en línea que buscan orden y rentabilidad.</div>
+    <div class="ind-banner-sub">Sync automático · Sin sobreventas · Historial de clientes · Operación profesional sin complicaciones</div>
+  </div>
+  <button class="ind-banner-btn" onclick="location.href='registro.php'">Empieza gratis →</button>
+</div>
+
+<!-- OTRAS INDUSTRIAS -->
+<section class="other-section">
+  <div class="lf-section-inner">
+    <span class="s-eyebrow">Más industrias</span>
+    <h2 class="s-title">Libertyfin para <em>todo tipo de negocio</em></h2>
+    <div class="other-grid">
+      <a class="other-card" href="industria-retail"><div class="other-icon">🏪</div><div class="other-name">Retail & Tiendas</div></a>
+      <a class="other-card" href="industria-restaurantes"><div class="other-icon">🍽️</div><div class="other-name">Restaurantes</div></a>
+      <a class="other-card" href="industria-farmacias"><div class="other-icon">💊</div><div class="other-name">Farmacias</div></a>
+      <a class="other-card" href="industria-servicios"><div class="other-icon">💈</div><div class="other-name">Servicios</div></a>
+    </div>
+  </div>
+</section>
+
+<div id="lf-footer-placeholder"></div>
+<script src="../js/shared.js"></script>
+</body>
+</html>

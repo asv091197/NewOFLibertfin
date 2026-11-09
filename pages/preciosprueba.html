@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precios — Libertyfin</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+body { padding-top: 64px; }
+
+.page-hero { padding: 72px 24px 56px; text-align: center; background: var(--bg); border-bottom: 1px solid var(--border); }
+.pricing-toggle { display: flex; align-items: center; gap: 12px; justify-content: center; margin: 32px 0 0; font-size: 14px; font-weight: 600; color: var(--ink3); }
+.tog-track { width: 42px; height: 22px; border-radius: 100px; background: var(--green); cursor: pointer; position: relative; transition: all 0.2s; }
+.tog-thumb { width: 16px; height: 16px; border-radius: 50%; background: white; position: absolute; top: 3px; left: 3px; transition: transform 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.tog-track.annual .tog-thumb { transform: translateX(20px); }
+.save-badge { background: var(--green-mid); color: var(--green-dd); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+
+/* PLANES */
+.plans-section { padding: 64px 24px; background: white; }
+.plans-inner { max-width: 1080px; margin: 0 auto; }
+.plans-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+
+.plan { background: var(--bg); border: 1.5px solid var(--border); border-radius: 20px; padding: 28px 22px; transition: all 0.25s; position: relative; display: flex; flex-direction: column; }
+.plan:hover { background: var(--green); border-color: var(--green); box-shadow: 0 16px 48px rgba(34,197,94,0.28); transform: translateY(-6px); }
+.plan:hover .plan-name,
+.plan:hover .plan-period,
+.plan:hover .plan-li,
+.plan:hover .plan-section-label { color: rgba(255,255,255,0.8) !important; }
+.plan:hover .plan-price { color: white !important; }
+.plan:hover .plan-li::before { background-color: rgba(255,255,255,0.2) !important; background-image: url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") !important; }
+.plan:hover .plan-section-label { border-color: rgba(255,255,255,0.2) !important; }
+.plan:hover .plan-btn-outline { background: white !important; color: var(--green-d) !important; border-color: white !important; }
+.plan:hover .plan-btn-green { background: white !important; color: var(--green-d) !important; }
+
+.plan.popular { background: var(--ink); border-color: var(--ink); }
+.plan.popular .plan-name { color: rgba(255,255,255,0.5) !important; }
+.plan.popular .plan-price { color: white !important; }
+.plan.popular .plan-period { color: rgba(255,255,255,0.45) !important; }
+.plan.popular .plan-li { color: rgba(255,255,255,0.8) !important; }
+.plan.popular .plan-section-label { color: rgba(255,255,255,0.35) !important; border-color: rgba(255,255,255,0.1) !important; }
+.plan.popular .plan-li::before { background-color: rgba(255,255,255,0.15) !important; background-image: url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") !important; }
+.plan.popular:hover { background: var(--green) !important; border-color: var(--green) !important; }
+
+.popular-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; padding: 3px 16px; border-radius: 100px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+.plan-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--ink3); margin-bottom: 14px; transition: color 0.25s; }
+.plan-price { font-family: 'Nunito', sans-serif; font-size: 42px; font-weight: 900; letter-spacing: -2px; color: var(--ink); line-height: 1; margin-bottom: 4px; transition: color 0.25s; }
+.plan-price sup { font-size: 20px; vertical-align: top; margin-top: 8px; letter-spacing: 0; }
+.plan-period { font-size: 11.5px; color: var(--ink3); margin-bottom: 20px; transition: color 0.25s; }
+.plan-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--ink4); margin: 14px 0 8px; padding-top: 12px; border-top: 1px solid var(--border); transition: color 0.25s, border-color 0.25s; }
+.plan-lis { list-style: none; display: flex; flex-direction: column; gap: 7px; flex: 1; }
+.plan-li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--ink2); line-height: 1.4; transition: color 0.25s; }
+.plan-li::before { content: ''; width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; background: var(--green-mid) url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2316a34a' stroke-width='3' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") no-repeat center/9px; transition: all 0.25s; }
+
+.plan-btn-green, .plan-btn-outline { width: 100%; padding: 11px; border-radius: 10px; font-family: 'Poppins', sans-serif; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 20px; }
+.plan-btn-green { border: none; background: var(--green); color: white; box-shadow: 0 3px 12px rgba(34,197,94,0.3); }
+.plan-btn-green:hover { background: var(--green-d); }
+.plan-btn-outline { border: 1.5px solid var(--border2); background: white; color: var(--ink); }
+.plan-btn-outline:hover { border-color: var(--green); color: var(--green); }
+
+/* TABLA */
+.compare-section { padding: 64px 24px; background: var(--bg); }
+.compare-inner { max-width: 960px; margin: 0 auto; }
+.compare-table { width: 100%; border-collapse: collapse; margin-top: 40px; }
+.compare-table th { padding: 14px 16px; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800; color: var(--ink); text-align: center; border-bottom: 2px solid var(--border); }
+.compare-table th:first-child { text-align: left; width: 36%; }
+.compare-table th.hl { color: var(--green-d); }
+.compare-table td { padding: 11px 16px; font-size: 13px; color: var(--ink2); border-bottom: 1px solid var(--border); text-align: center; }
+.compare-table td:first-child { text-align: left; font-weight: 500; color: var(--ink); }
+.compare-table tbody tr:hover td { background: var(--green-light); }
+.tr-section td { background: #f3f4f6; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ink3); padding: 8px 16px; }
+.yes { color: var(--green-d); font-size: 17px; font-weight: 700; }
+.no  { color: var(--ink4); font-size: 17px; }
+.val { font-weight: 700; color: var(--ink); }
+
+/* FAQ */
+.faq-section { padding: 64px 24px; background: white; }
+.faq-inner { max-width: 720px; margin: 0 auto; }
+.faq-item { border-bottom: 1px solid var(--border); cursor: pointer; }
+.faq-q { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; font-size: 15px; font-weight: 700; color: var(--ink); gap: 16px; }
+.faq-q svg { width: 18px; height: 18px; color: var(--ink3); transition: transform 0.2s; flex-shrink: 0; }
+.faq-item.open .faq-q { color: var(--green); }
+.faq-item.open .faq-q svg { transform: rotate(180deg); color: var(--green); }
+.faq-a { font-size: 14px; color: var(--ink3); line-height: 1.7; max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s; }
+.faq-item.open .faq-a { max-height: 200px; padding-bottom: 18px; }
+
+/* CTA */
+.cta-banner { background: var(--ink); padding: 80px 24px; text-align: center; position: relative; overflow: hidden; }
+.cta-glow { position: absolute; width: 500px; height: 400px; border-radius: 50%; background: rgba(34,197,94,0.1); filter: blur(90px); top: -150px; left: 50%; transform: translateX(-50%); pointer-events: none; }
+.cta-inner { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
+.cta-title { font-family: 'Nunito', sans-serif; font-size: clamp(28px,4.5vw,48px); font-weight: 900; letter-spacing: -2px; color: white; line-height: 1.1; margin-bottom: 16px; }
+.cta-title em { font-style: normal; color: var(--green); }
+.cta-sub { font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 36px; line-height: 1.65; }
+.cta-btns { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-cta-p { padding: 13px 30px; border-radius: 10px; background: var(--green); color: white; border: none; font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px rgba(34,197,94,0.35); }
+.btn-cta-p:hover { background: var(--green-d); transform: translateY(-2px); }
+.btn-cta-g { padding: 13px 30px; border-radius: 10px; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.7); border: 1.5px solid rgba(255,255,255,0.14); font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-cta-g:hover { background: rgba(255,255,255,0.13); color: white; }
+
+@media(max-width:900px) { .plans-grid { grid-template-columns: 1fr 1fr; } }
+@media(max-width:600px) { .plans-grid { grid-template-columns: 1fr; } .compare-table { font-size: 12px; } .compare-table th, .compare-table td { padding: 9px 10px; } }
+
+/* Notificación flotante */
+.cart-notification {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--green);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 1000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+.cart-notification.show {
+    transform: translateX(0);
+}
+</style>
+</head>
+<body>
+<div id="lf-nav-placeholder"></div>
+
+<!-- Notificación de carrito -->
+<div id="cart-notification" class="cart-notification">
+    ✓ Producto agregado al carrito
+</div>
+
+<div class="page-hero">
+  <span class="s-eyebrow">Precios</span>
+  <h1 class="s-title" style="font-family:'Nunito',sans-serif;font-size:clamp(32px,5vw,52px);font-weight:900;letter-spacing:-2px;color:var(--ink);margin-bottom:12px">
+    Simple, <em style="font-style:normal;color:var(--green)">transparente,</em><br>sin sorpresas.
+  </h1>
+  <p style="font-size:15px;color:var(--ink3)">Sin permanencia. Cancela cuando quieras.</p>
+  <div class="pricing-toggle">
+    <span>Mensual</span>
+    <div class="tog-track" onclick="togglePricing()" id="togTrack"><div class="tog-thumb"></div></div>
+    <span>Anual <span class="save-badge">–20%</span></span>
+  </div>
+</div>
+
+<section class="plans-section">
+  <div class="plans-inner">
+    <div class="plans-grid">
+
+      <!-- BÁSICO -->
+      <div class="plan reveal" data-plan="basico">
+        <div class="plan-name">Básico</div>
+        <div class="plan-price"><sup>$</sup><span class="pv" data-m="50" data-a="239">50</span></div>
+        <div class="plan-period">MXN/mes · 1 usuario</div>
+        <ul class="plan-lis">
+          <div class="plan-section-label">Punto de Venta</div>
+          <li class="plan-li">1 caja registradora</li>
+          <li class="plan-li">100 productos</li>
+          <li class="plan-li">Pago en efectivo</li>
+        </ul>
+        <button class="plan-btn-outline add-to-cart" data-plan="Básico" data-precio-mensual="50" data-precio-anual="239" data-descripcion="1 caja · 100 productos · Pago en efectivo">
+          Empieza ahora
+        </button>
+      </div>
+
+      <!-- PROFESIONAL -->
+      <div class="plan reveal reveal-d1" data-plan="profesional">
+        <div class="plan-name">Profesional</div>
+        <div class="plan-price"><sup>$</sup><span class="pv" data-m="599" data-a="479">599</span></div>
+        <div class="plan-period">MXN/mes · 4 usuarios</div>
+        <ul class="plan-lis">
+          <div class="plan-section-label">Punto de Venta</div>
+          <li class="plan-li">2 cajas registradoras</li>
+          <li class="plan-li">500 productos</li>
+          <li class="plan-li">Pago en efectivo</li>
+        </ul>
+        <button class="plan-btn-outline add-to-cart" data-plan="Profesional" data-precio-mensual="599" data-precio-anual="479" data-descripcion="2 cajas · 500 productos · Pago en efectivo">
+          Contrátanos
+        </button>
+      </div>
+
+      <!-- EMPRESARIAL -->
+      <div class="plan popular reveal reveal-d2" data-plan="empresarial">
+        <div class="popular-badge">⚡ Más popular</div>
+        <div class="plan-name">Empresarial</div>
+        <div class="plan-price"><sup>$</sup><span class="pv" data-m="999" data-a="799">999</span></div>
+        <div class="plan-period">MXN/mes · 6 usuarios</div>
+        <ul class="plan-lis">
+          <div class="plan-section-label">Punto de Venta</div>
+          <li class="plan-li">3 cajas registradoras</li>
+          <li class="plan-li">1 sucursal</li>
+          <li class="plan-li">500 productos</li>
+          <div class="plan-section-label">Pagos</div>
+          <li class="plan-li">Pasarela de pago</li>
+          <li class="plan-li">SPEI / PayPal</li>
+        </ul>
+        <button class="plan-btn-green add-to-cart" data-plan="Empresarial" data-precio-mensual="999" data-precio-anual="799" data-descripcion="3 cajas · 1 sucursal · 500 productos · Pasarela de pago · SPEI/PayPal">
+          Solicitar demo
+        </button>
+      </div>
+
+      <!-- EMPRESARIAL PLUS -->
+      <div class="plan reveal reveal-d3" data-plan="empresarial-plus">
+        <div class="plan-name">Empresarial Plus</div>
+        <div class="plan-price" style="font-size:32px"><sup style="font-size:16px">$</sup><span class="pv" data-m="1499" data-a="1199">1,499</span></div>
+        <div class="plan-period">MXN/mes · 10 usuarios</div>
+        <ul class="plan-lis">
+          <div class="plan-section-label">Punto de Venta</div>
+          <li class="plan-li">10 cajas registradoras</li>
+          <li class="plan-li">3 sucursales</li>
+          <li class="plan-li">Productos ilimitados</li>
+          <div class="plan-section-label">Pagos</div>
+          <li class="plan-li">Pasarela de pago</li>
+          <li class="plan-li">SPEI / PayPal</li>
+          <li class="plan-li">Tarjeta de crédito</li>
+          <div class="plan-section-label">Facturación</div>
+          <li class="plan-li">500 CFDI / Timbres</li>
+        </ul>
+        <button class="plan-btn-outline add-to-cart" data-plan="Empresarial Plus" data-precio-mensual="1499" data-precio-anual="1199" data-descripcion="10 cajas · 3 sucursales · Productos ilimitados · Pasarela de pago · SPEI/PayPal · Tarjeta crédito · 500 CFDI">
+          Contáctanos
+        </button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- TABLA COMPARATIVA -->
+<section class="compare-section">
+  <div class="compare-inner">
+    <div class="reveal text-center">
+      <span class="s-eyebrow">Comparativa</span>
+      <h2 style="font-family:'Nunito',sans-serif;font-size:clamp(28px,4vw,44px);font-weight:900;letter-spacing:-1.5px;color:var(--ink);margin-bottom:16px">¿Qué incluye cada plan?</h2>
+    </div>
+    <table class="compare-table reveal">
+      <thead>
+        <tr>
+          <th>Funcionalidad</th>
+          <th>Básico</th>
+          <th>Profesional</th>
+          <th class="hl">Empresarial</th>
+          <th>Emp. Plus</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tr-section"><td colspan="5">Usuarios y Cajas</td></tr>
+        <tr><td>Usuarios incluidos</td><td class="val">1</td><td class="val">4</td><td class="val">6</td><td class="val">10</td></tr>
+        <tr><td>Cajas registradoras</td><td class="val">1</td><td class="val">2</td><td class="val">3</td><td class="val">10</td></tr>
+        <tr><td>Sucursales</td><td class="no">–</td><td class="no">–</td><td class="val">1</td><td class="val">3</td></tr>
+
+        <tr class="tr-section"><td colspan="5">Inventario</td></tr>
+        <tr><td>Productos</td><td class="val">100</td><td class="val">500</td><td class="val">500</td><td class="val">Ilimitados</td></tr>
+        <tr><td>Alertas de stock mínimo</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Múltiples almacenes</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+
+        <tr class="tr-section"><td colspan="5">Métodos de Pago</td></tr>
+        <tr><td>Pago en efectivo</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Pasarela de pago</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>SPEI / PayPal</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Tarjeta de crédito</td><td class="no">–</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td></tr>
+
+        <tr class="tr-section"><td colspan="5">Facturación CFDI</td></tr>
+        <tr><td>CFDI / Timbres mensuales</td><td class="no">–</td><td class="no">–</td><td class="no">–</td><td class="val">500</td></tr>
+        <tr><td>Complemento de pago</td><td class="no">–</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td></tr>
+
+        <tr class="tr-section"><td colspan="5">Reportes</td></tr>
+        <tr><td>Dashboard de ventas</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Exportar Excel / PDF</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Reportes por sucursal</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+
+        <tr class="tr-section"><td colspan="5">Soporte</td></tr>
+        <tr><td>Soporte por chat</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Soporte prioritario</td><td class="no">–</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Capacitación incluida</td><td class="no">–</td><td class="no">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section">
+  <div class="faq-inner">
+    <div class="reveal text-center" style="margin-bottom:40px">
+      <span class="s-eyebrow">Preguntas frecuentes</span>
+      <h2 style="font-family:'Nunito',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:900;letter-spacing:-1px;color:var(--ink)">¿Tienes dudas?</h2>
+    </div>
+    <div class="faq-item reveal" onclick="toggleFaq(this)"><div class="faq-q">¿Necesito tarjeta de crédito para empezar? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div><div class="faq-a">No. Puedes comenzar sin tarjeta de crédito. Solo necesitas tu correo y los datos de tu negocio.</div></div>
+    <div class="faq-item reveal" onclick="toggleFaq(this)"><div class="faq-q">¿Puedo cambiar de plan en cualquier momento? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div><div class="faq-a">Sí. Puedes subir o bajar de plan cuando quieras. El cambio aplica en el siguiente período de facturación sin penalizaciones.</div></div>
+    <div class="faq-item reveal" onclick="toggleFaq(this)"><div class="faq-q">¿Los 500 CFDI del plan Empresarial Plus son mensuales? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div><div class="faq-a">Sí, son 500 timbres por mes. Si necesitas más puedes adquirir paquetes adicionales desde tu panel sin necesidad de cambiar de plan.</div></div>
+    <div class="faq-item reveal" onclick="toggleFaq(this)"><div class="faq-q">¿Qué pasa con mis datos si cancelo? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div><div class="faq-a">Tienes 30 días para exportar todos tus datos en Excel o PDF. Después son eliminados de nuestros servidores de forma segura.</div></div>
+    <div class="faq-item reveal" onclick="toggleFaq(this)"><div class="faq-q">¿Tienen soporte en español? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div><div class="faq-a">Sí, 100% en español. Atención por chat, correo y WhatsApp. Profesional, Empresarial y Empresarial Plus incluyen soporte prioritario.</div></div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-banner">
+  <div class="cta-glow"></div>
+  <div class="cta-inner reveal">
+    <h2 class="cta-title">¿Listo para <em>empezar?</em></h2>
+    <p class="cta-sub">Sin permanencia. Sin tarjeta de crédito. Cancela cuando quieras.</p>
+    <div class="cta-btns">
+      <button class="btn-cta-p" onclick="location.href='registro'">Crear cuenta gratis</button>
+      <button class="btn-cta-g" onclick="location.href='distribuidores'">Hablar con ventas</button>
+    </div>
+  </div>
+</section>
+
+<div id="lf-footer-placeholder"></div>
+<script src="../js/shared.js"></script>
+<script>
+let annual = false;
+
+function togglePricing() {
+  annual = !annual;
+  document.getElementById('togTrack').classList.toggle('annual', annual);
+  document.querySelectorAll('.pv').forEach(el => {
+    el.textContent = Number(el.dataset[annual ? 'a' : 'm']).toLocaleString();
+  });
+}
+
+function toggleFaq(el) { 
+  el.classList.toggle('open'); 
+}
+
+// Función para mostrar notificación
+function showCartNotification() {
+  const notification = document.getElementById('cart-notification');
+  notification.classList.add('show');
+  setTimeout(() => {
+    notification.classList.remove('show');
+  }, 2000);
+}
+
+// Función para agregar producto al carrito
+function addToCart(planNombre, precio, descripcion) {
+  // Guardar en localStorage para que el carrito lo pueda leer
+  let carrito = JSON.parse(localStorage.getItem('libertyfin_carrito')) || [];
+  
+  // Buscar si el producto ya existe
+  const existingIndex = carrito.findIndex(item => item.producto === planNombre);
+  
+  if (existingIndex >= 0) {
+    carrito[existingIndex].cantidad += 1;
+  } else {
+    carrito.push({
+      producto: planNombre,
+      precio: parseFloat(precio),
+      descripcion: descripcion,
+      cantidad: 1,
+      sku: 'PLAN-' + Date.now(),
+      fechaAgregado: new Date().toISOString()
+    });
+  }
+  
+  localStorage.setItem('libertyfin_carrito', JSON.stringify(carrito));
+  
+  // Mostrar notificación
+  showCartNotification();
+  
+  // Redirigir al carrito después de 0.5 segundos
+  setTimeout(() => {
+    window.location.href = 'carrito';
+  }, 500);
+}
+
+// Event listeners para los botones
+document.addEventListener('DOMContentLoaded', function() {
+  // Obtener el precio actual según el toggle (mensual/anual)
+  function getCurrentPrice(btn) {
+    const precioMensual = btn.getAttribute('data-precio-mensual');
+    const precioAnual = btn.getAttribute('data-precio-anual');
+    return annual ? precioAnual : precioMensual;
+  }
+  
+  // Agregar event listeners a todos los botones .add-to-cart
+  document.querySelectorAll('.add-to-cart').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const planNombre = this.getAttribute('data-plan');
+      const precioActual = getCurrentPrice(this);
+      const descripcion = this.getAttribute('data-descripcion');
+      
+      addToCart(planNombre, precioActual, descripcion);
+    });
+  });
+});
+</script>
+</body>
+</html>

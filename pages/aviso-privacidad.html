@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviso de Privacidad | Libertyfin</title>
+    <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+    
+    <!-- Meta tags para SEO -->
+    <meta name="description" content="Aviso de Privacidad de Libertyfin. Conoce cómo protegemos tus datos personales conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.">
+    <meta name="keywords" content="aviso de privacidad, libertyfin, datos personales, protección de datos, ARCO">
+    <meta name="author" content="Libertyfin">
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://libertyfin.com.mx/aviso-privacidad">
+    <meta property="og:title" content="Aviso de Privacidad | Libertyfin">
+    <meta property="og:description" content="Conoce cómo protegemos tus datos personales.">
+    
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/main.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Poppins", sans-serif;
+            background: #ffffff;
+            color: #1e293b;
+            line-height: 1.5;
+             padding-top: 64px;
+        }
+
+        /* Variables */
+        :root {
+            --ink: #0f172a;
+            --green: #10b981;
+        }
+
+        /* ===== PAGE HERO ===== */
+        .page-hero {
+            padding: 60px 24px 64px;
+            text-align: center;
+            background: var(--ink);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-hero-glow {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, 0.12);
+            filter: blur(90px);
+            top: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .page-hero-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .page-hero .s-eyebrow {
+            color: var(--green);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .page-hero .s-title {
+            color: white;
+            font-size: clamp(34px, 5vw, 60px);
+            font-weight: 700;
+            max-width: 800px;
+            margin: 0 auto 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .page-hero .s-sub {
+            color: rgba(255, 255, 255, 0.7);
+            margin: 16px auto 0;
+            font-size: 1rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .hero-meta {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 28px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .hero-meta span i {
+            margin-right: 0.5rem;
+            color: var(--green);
+        }
+
+        /* Botones */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn-green {
+            background: var(--green);
+            color: white;
+            border: none;
+        }
+
+        .btn-green:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--green);
+            color: var(--green);
+            transform: translateY(-2px);
+        }
+
+        /* ===== CONTENEDOR PRINCIPAL - DOS COLUMNAS ===== */
+        .legal-wrapper {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 3rem 2rem 5rem;
+            display: flex;
+            gap: 4rem;
+            align-items: flex-start;
+        }
+
+        /* ===== COLUMNA IZQUIERDA (sticky) ===== */
+        .legal-sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 100px;
+        }
+
+        .legal-toc-section h2 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .toc-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .toc-grid a {
+            font-size: 0.9rem;
+            color: #334155;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: block;
+            padding: 0.2rem 0;
+        }
+
+        .toc-grid a:hover {
+            color: var(--green);
+            padding-left: 0.5rem;
+        }
+
+        .toc-grid a.active {
+            color: var(--green);
+            border-left: 2px solid var(--green);
+            padding-left: 0.75rem;
+        }
+
+        /* ===== COLUMNA DERECHA ===== */
+        .legal-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Tarjeta de información de la empresa */
+        .company-card {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            border: 1px solid #eef2ff;
+        }
+
+        .company-card p {
+            font-size: 0.85rem;
+            color: #475569;
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
+
+        /* Secciones */
+        .legal-section {
+            margin-bottom: 2.5rem;
+            scroll-margin-top: 100px;
+        }
+
+        .legal-section h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 0.75rem;
+        }
+
+        .legal-section p {
+            margin-bottom: 1rem;
+            color: #334155;
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+
+        .legal-section a {
+            color: var(--green);
+            text-decoration: none;
+        }
+
+        .legal-section a:hover {
+            text-decoration: underline;
+        }
+
+        /* Lista de datos personales */
+        .datos-list {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1rem 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .datos-list li {
+            color: #334155;
+            font-size: 0.9rem;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .datos-list li i {
+            color: var(--green);
+            font-size: 0.75rem;
+        }
+
+        /* Notas especiales */
+        .legal-note-important {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+        }
+
+        .legal-note-important p {
+            margin-bottom: 0;
+            color: #991b1b;
+            font-size: 0.85rem;
+        }
+
+        .legal-note-important i {
+            margin-right: 0.5rem;
+        }
+
+        .legal-note-warning {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+        }
+
+        .legal-note-warning p {
+            margin-bottom: 0;
+            color: #92400e;
+            font-size: 0.85rem;
+        }
+
+        .legal-note-info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+        }
+
+        .legal-note-info p {
+            margin-bottom: 0;
+            color: #1e40af;
+            font-size: 0.85rem;
+        }
+
+        /* No transferencia */
+        .no-transfer-card {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            border: 1px solid #a7f3d0;
+        }
+
+        .no-transfer-card i {
+            font-size: 2rem;
+            color: var(--green);
+            margin-bottom: 0.75rem;
+        }
+
+        .no-transfer-card p {
+            margin-bottom: 0;
+            font-weight: 600;
+            color: #065f46;
+        }
+
+        /* Firma */
+        .legal-signature {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0 1.5rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .legal-signature p {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .signature-line {
+            font-family: monospace;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            color: #64748b;
+            margin: 1rem auto 0.5rem;
+            border-top: 1px dashed #cbd5e1;
+            display: inline-block;
+            padding-top: 1rem;
+            width: 250px;
+        }
+
+        /* Footer legal */
+        .legal-footer {
+            border-top: 1px solid #e2e8f0;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .legal-wrapper {
+                flex-direction: column;
+                padding: 2rem 1.5rem 3rem;
+                gap: 2rem;
+            }
+            
+            .legal-sidebar {
+                width: 100%;
+                position: static;
+            }
+            
+            .toc-grid {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+            
+            .toc-grid a {
+                background: #f1f5f9;
+                padding: 0.35rem 1rem;
+                border-radius: 30px;
+                font-size: 0.8rem;
+            }
+            
+            .toc-grid a:hover,
+            .toc-grid a.active {
+                background: var(--green);
+                color: white;
+                padding-left: 1rem;
+                border-left: none;
+            }
+            
+            .hero-meta {
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: center;
+            }
+            
+            .legal-footer {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .datos-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .page-hero {
+                padding: 40px 20px 48px;
+            }
+            
+            .btn {
+                padding: 10px 20px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navbar placeholder -->
+    <div id="lf-nav-placeholder"></div>
+
+    <!-- PAGE HERO -->
+    <div class="page-hero">
+        <div class="page-hero-glow"></div>
+        <div class="page-hero-inner">
+            <span class="s-eyebrow">Protección de Datos</span>
+            <h1 class="s-title">Aviso de Privacidad</h1>
+            <p class="s-sub">
+                Conoce cómo protegemos tus datos personales conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.
+            </p>
+            <div class="hero-meta">
+                <span><i class="fas fa-calendar-alt"></i> Última actualización: mayo 2026</span>
+                <span><i class="fas fa-clock"></i> Tiempo de lectura: ~6 min</span>
+            </div>
+                   </div>
+    </div>
+
+    <!-- CONTENEDOR DE DOS COLUMNAS -->
+    <div class="legal-wrapper">
+        <!-- COLUMNA IZQUIERDA: CONTENIDO (sticky) -->
+        <aside class="legal-sidebar">
+            <div class="legal-toc-section">
+                <h2>CONTENIDO</h2>
+                <div class="toc-grid">
+                    <a href="#responsable">1. Responsable</a>
+                    <a href="#finalidades">2. Finalidades</a>
+                    <a href="#datos">3. Datos personales</a>
+                    <a href="#arco">4. Derechos ARCO</a>
+                    <a href="#transferencia">5. Transferencia de datos</a>
+                    <a href="#modificaciones">6. Modificaciones</a>
+                    <a href="#contacto">7. Contacto</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- COLUMNA DERECHA: Contenido -->
+        <main class="legal-content">
+            <!-- Tarjeta de la empresa -->
+            <div class="company-card">
+                <p>
+                    Con fundamento en los artículos 15 y 16 de la <strong>Ley Federal de Protección de Datos Personales en Posesión de Particulares</strong> hacemos de su conocimiento que <strong>OPERACIONES Y MULTISERVICIOS IDEAS, S.A. DE C.V. (GRUPO IDEAS)</strong>, con domicilio en Calle <strong>LEIBNITZ #11 COLONIA AZURES, C.P.11590 ALCALDIA MIGUEL HIDALGO, EN LA CIUDAD DE MEXICO</strong>, es responsable de recabar sus datos personales, del uso que se le dé a los mismos y de su protección.
+                </p>
+            </div>
+
+            <!-- 1. RESPONSABLE -->
+            <div id="responsable" class="legal-section">
+                <h3>1. Responsable de tus datos</h3>
+                <p>
+                    <strong>OPERACIONES Y MULTISERVICIOS IDEAS, S.A. DE C.V. (GRUPO IDEAS)</strong> es el responsable del tratamiento de sus datos personales. Nuestro domicilio se encuentra en Calle <strong>LEIBNITZ #11 COLONIA AZURES, C.P.11590 ALCALDIA MIGUEL HIDALGO, EN LA CIUDAD DE MEXICO</strong>.
+                </p>
+            </div>
+
+            <!-- 2. FINALIDADES -->
+            <div id="finalidades" class="legal-section">
+                <h3>2. Finalidades del tratamiento</h3>
+                <p>Su información personal será utilizada para las siguientes finalidades:</p>
+                <ul style="margin-left: 1.5rem; color: #334155; font-size: 0.9rem;">
+                    <li>Proveer los servicios y productos que ha solicitado</li>
+                    <li>Notificarle sobre nuevos servicios o productos que tengan relación con los ya contratados o adquiridos</li>
+                    <li>Comunicarle sobre cambios en los mismos</li>
+                    <li>Realizar evaluaciones periódicas de nuestros productos y servicios a efecto de mejorar la calidad de los mismos</li>
+                    <li>Evaluar la calidad del servicio que brindamos</li>
+                    <li>Dar cumplimiento a las obligaciones que hemos contraído con usted</li>
+                </ul>
+            </div>
+
+            <!-- 3. DATOS PERSONALES -->
+            <div id="datos" class="legal-section">
+                <h3>3. Datos personales que recabamos</h3>
+                <p>Los datos personales que recabamos de usted serán utilizados para las siguientes finalidades, las cuales son necesarias para concretar nuestra relación con usted, así como para atender los servicios que solicite:</p>
+                
+                <ul class="datos-list">
+                    <li><i class="fas fa-check-circle"></i> Nombre completo</li>
+                    <li><i class="fas fa-check-circle"></i> Edad</li>
+                    <li><i class="fas fa-check-circle"></i> INE</li>
+                    <li><i class="fas fa-check-circle"></i> Teléfono fijo y/o celular</li>
+                    <li><i class="fas fa-check-circle"></i> Correo electrónico</li>
+                    <li><i class="fas fa-check-circle"></i> Firma autógrafa</li>
+                    <li><i class="fas fa-check-circle"></i> Dirección</li>
+                    <li><i class="fas fa-check-circle"></i> RFC y/o CURP</li>
+                    <li><i class="fas fa-check-circle"></i> Nivel de ingreso</li>
+                    <li><i class="fas fa-check-circle"></i> Estados Financieros</li>
+                </ul>
+            </div>
+
+            <!-- 4. DERECHOS ARCO -->
+            <div id="arco" class="legal-section">
+                <h3>4. Derechos ARCO</h3>
+                <p>
+                    Es importante informarle que usted tiene derecho al <strong>Acceso, Rectificación y Cancelación</strong> de sus datos personales, a <strong>Oponerse</strong> al Tratamiento de los mismos o a <strong>revocar el consentimiento</strong> que para dicho fin nos haya otorgado. (Derechos ARCO).
+                </p>
+                <p>
+                    Para ello, es necesario que envíe la solicitud en términos que marca la Ley en su Art. 29 a <strong>Tania Gisselle González</strong>, responsable de nuestro departamento de Protección de Datos Personales, ubicado en <strong>Rio Mississippi #53-301-B Colonia Cuauhtémoc, C.P.06500 Alcaldía Cuauhtémoc, en la Ciudad de México</strong>, o bien, se comunique al teléfono <strong>56 1106 2957</strong> o vía correo electrónico a <strong>contacto@grupoideasmx.com</strong>, el cual solicitamos confirme vía telefónica para garantizar su correcta recepción.
+                </p>
+                
+                <div class="legal-note-info">
+                    <p><i class="fas fa-info-circle"></i> <strong>Importante:</strong> Para garantizar la correcta recepción de su solicitud ARCO, favor de confirmar vía telefónica después de enviar su correo electrónico.</p>
+                </div>
+            </div>
+
+            <!-- 5. TRANSFERENCIA DE DATOS -->
+            <div id="transferencia" class="legal-section">
+                <h3>5. Transferencia de datos personales</h3>
+                
+                <div class="no-transfer-card">
+                    <i class="fas fa-shield-alt"></i>
+                    <p><strong>OPERACIONES Y MULTISERVICIOS IDEAS, S.A. DE C.V. (GRUPO IDEAS)</strong> NO TRANSFIERE INFORMACIÓN PERSONAL A TERCEROS.</p>
+                </div>
+                
+                <div class="legal-note-warning">
+                    <p><i class="fas fa-exclamation-triangle"></i> Sus datos personales no serán compartidos con terceros ajenos a esta empresa, garantizando así su confidencialidad y protección.</p>
+                </div>
+            </div>
+
+            <!-- 6. MODIFICACIONES -->
+            <div id="modificaciones" class="legal-section">
+                <h3>6. Modificaciones al Aviso de Privacidad</h3>
+                <p>
+                    Cualquier modificación a este Aviso de Privacidad podrá consultarlo en: 
+                    <a href="https://www.libertyfin.com.mx/avisos-privacidad">https://www.libertyfin.com.mx/avisos-privacidad</a>
+                </p>
+                <p>Nos reservamos el derecho de realizar cambios o actualizaciones al presente aviso en cualquier momento, para atender novedades legislativas, políticas internas o nuevos requerimientos de nuestros servicios.</p>
+            </div>
+
+            <!-- 7. CONTACTO -->
+            <div id="contacto" class="legal-section">
+                <h3>7. Contacto</h3>
+                <p>Para cualquier duda, solicitud o queja relacionada con la privacidad de tus datos, contáctanos a través de cualquiera de estos medios:</p>
+                <p>
+                    <strong>Libertyfin - Área de Privacidad</strong><br>
+                    <i class="fas fa-map-marker-alt me-2"></i>  Calle Leibintz #11, Colonia Azures, C.P. 11590, Alcaldía Miguel Hidalgo, Ciudad de México<br>
+                    <i class="fas fa-phone me-2"></i> Teléfono: 56 1106 2957<br>
+                    <i class="fas fa-envelope me-2"></i> Correo: contacto@grupoideasmx.com<br>
+                    <i class="fas fa-clock me-2"></i> Horario de atención: Lunes a Viernes de 9:00 a 18:00 hrs
+                </p>
+            </div>
+
+            <!-- Footer legal -->
+            <div class="legal-footer">
+                <span><i class="fas fa-file-contract"></i> Fundamento: Arts. 15 y 16 LFPDPPP</span>
+                <span><i class="fas fa-balance-scale"></i> Conforme a la legislación mexicana</span>
+                <span><i class="fas fa-building"></i> OPERACIONES Y MULTISERVICIOS IDEAS, S.A. DE C.V.</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer placeholder -->
+    <div id="lf-footer-placeholder"></div>
+
+    <!-- Shared JS -->
+    <script src="../js/shared.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tocLinks = document.querySelectorAll('.toc-grid a');
+            const sections = document.querySelectorAll('.legal-section');
+            
+            function updateActiveLink() {
+                let current = '';
+                const scrollPosition = window.scrollY + 120;
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionBottom = sectionTop + section.offsetHeight;
+                    
+                    if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    const href = link.getAttribute('href').substring(1);
+                    if (href === current) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+            
+            tocLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if (targetElement) {
+                        const offset = 100;
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - offset;
+                        
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+            
+            window.addEventListener('scroll', updateActiveLink);
+            updateActiveLink();
+        });
+    </script>
+</body>
+
+</html>

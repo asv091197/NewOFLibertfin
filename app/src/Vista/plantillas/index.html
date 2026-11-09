@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libertyfin — Sistema de Ventas en la Nube para México</title>
+<link rel="icon" href="images/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/assets/css/main.css">
+<link rel="stylesheet" href="/assets/css/index.css">
+<style>
+  /* ── ESTILOS EXTRAS PARA ASEGURAR UNA SOLA LÍNEA ── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4 columnas iguales */
+    gap: 20px;
+    max-width: 1200px;
+    margin: 52px auto 0;
+  }
+
+  /* Ajuste para que las tarjetas se vean bien en pantallas grandes */
+  @media (max-width: 1000px) {
+    .pricing-grid {
+      gap: 16px;
+    }
+    .plan-price {
+      font-size: 30px;
+    }
+    .plan-price sup {
+      font-size: 16px;
+    }
+  }
+
+  /* En tablets, si es necesario reducimos a 2 columnas (opcional, pero mantiene legibilidad) */
+  @media (max-width: 800px) {
+    .pricing-grid {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 600px;
+    }
+  }
+
+  /* En móviles, 1 columna */
+  @media (max-width: 500px) {
+    .pricing-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Ajustes visuales para la tarjeta */
+  .plan-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 24px 20px;
+    transition: all 0.25s;
+    display: flex;
+    flex-direction: column;
+  }
+  .plan-card:hover {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 12px 40px rgba(34,197,94,0.3);
+    transform: translateY(-4px);
+  }
+  .plan-card:hover .plan-name,
+  .plan-card:hover .plan-period { color: rgba(255,255,255,0.6); }
+  .plan-card:hover .plan-price { color: white; }
+  .plan-card:hover .plan-li { color: rgba(255,255,255,0.82); }
+  .plan-card:hover .plan-btn { background: white; color: var(--green-d); }
+
+  .plan-name {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--ink3);
+    margin-bottom: 10px;
+    transition: color 0.25s;
+  }
+  .plan-price {
+    font-family: 'Nunito', sans-serif;
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: 3px;
+    transition: color 0.25s;
+  }
+  .plan-price sup {
+    font-size: 18px;
+    vertical-align: top;
+    margin-top: 6px;
+  }
+  .plan-period {
+    font-size: 11px;
+    color: var(--ink3);
+    margin-bottom: 20px;
+    transition: color 0.25s;
+  }
+  .plan-lis {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 22px;
+    flex: 1;
+  }
+  .plan-li {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 12.5px;
+    color: var(--ink2);
+    line-height: 1.4;
+    transition: color 0.25s;
+  }
+  .plan-li::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 1px;
+    background: var(--green-mid) url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2316a34a' stroke-width='3' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") no-repeat center / 9px;
+  }
+  .plan-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 9px;
+    border: none;
+    background: var(--green);
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR (inyectado por shared.js) -->
+<div id="lf-nav-placeholder"></div>
+
+<!-- ═══════════════════════════════════════
+     HERO
+═══════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid-lines"></div>
+  <div class="hero-inner">
+
+    <div class="hero-pill">
+      <span class="hero-pill-dot"></span>
+      Sistema de ventas en la nube para México
+    </div>
+
+    <h1 class="hero-h1">
+      Vende más,
+      <em>administra menos</em>
+      <span>desde un solo lugar</span>
+    </h1>
+
+    <p class="hero-sub">
+      Libertyfin unifica inventario, facturación CFDI, clientes y reportes
+      en una plataforma potente y fácil de usar para cualquier negocio.
+    </p>
+
+    <div class="hero-ctas">
+      <a class="btn btn-green" href="pages/registro">Registra tu empresa</a>
+      <a class="btn btn-ghost" href="https://www.youtube.com/@LibertyfinMX">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+        </svg>
+        Ver tutoriales
+      </a>
+    </div>
+
+    <div class="hero-trust">
+      <span><span class="trust-check">✓</span> Sin tarjeta de crédito</span>
+      <span class="trust-sep"></span>
+      <span><span class="trust-check">✓</span> 14 días gratis</span>
+      <span class="trust-sep"></span>
+      <span><span class="trust-check">✓</span> CFDI 4.0 incluido</span>
+      <span class="trust-sep"></span>
+      <span><span class="trust-check">✓</span> Soporte en español</span>
+    </div>
+
+    <!-- App preview window - VIDEO DE YOUTUBE EN ALTA CALIDAD (1080p) -->
+    <div class="hero-frame-wrap">
+      <div class="browser-frame" style="overflow: hidden; position: relative;">
+        <iframe 
+          id="heroVideo"
+          src="https://www.youtube.com/embed/Q-utJFaHwuk?autoplay=1&mute=1&loop=1&playlist=Q-utJFaHwuk&controls=1&playsinline=1&rel=0&modestbranding=1&vq=hd1080&quality=high"
+          title="Tutorial Libertyfin - Alta calidad"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+          style="width: 100%; height: 100%; min-height: 400px; display: block; border: none;">
+        </iframe>
+        <button id="unmuteButton" class="video-audio-btn" aria-label="Activar audio (haz clic en el video)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9v6h4l5 5V4L7 9H3z M16.5 9.5c1.5 1.5 1.5 3.5 0 5 M19.5 6.5c3 3 3 7 0 10"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     LOGOS DE CLIENTES
+═══════════════════════════════════════ -->
+<div class="logos-strip">
+  <div class="logos-inner">
+    <p class="logos-label">Más de 1,000 negocios confían en Libertyfin</p>
+    <div class="logos-row">
+      <div class="logo-item"><img src="/assets/img/logo_ideastravel.png" alt="Ideas Travel"></div>
+      <div class="logo-item"><img src="/assets/img/logo_contabilidadestrategica.png" alt="Contabilidad Estratégica"></div>
+      <div class="logo-item"><img src="/assets/img/logo_grupoideas.png" alt="Grupo Ideas MX"></div>
+      <div class="logo-item"><img src="/assets/img/logo_check.png" alt="Check Servicios Legales"></div>
+      <div class="logo-item"><img src="/assets/img/logo_reclutal.png" alt="Reclutal"></div>
+      <div class="logo-item"><img src="/assets/img/logo_seguroslux.png" alt="Seguros Lux"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     ESTADÍSTICAS
+═══════════════════════════════════════ -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-item reveal"><div class="stat-val">+1,000</div><div class="stat-label">Negocios activos</div></div>
+    <div class="stat-item reveal reveal-d1"><div class="stat-val">99.9%</div><div class="stat-label">Tiempo en línea</div></div>
+    <div class="stat-item reveal reveal-d2"><div class="stat-val">$0</div><div class="stat-label">Inversión inicial</div></div>
+    <div class="stat-item reveal reveal-d3"><div class="stat-val">14 días</div><div class="stat-label">Prueba gratuita</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MÓDULOS / FUNCIONALIDADES
+═══════════════════════════════════════ -->
+<section class="modules-section">
+  <div class="lf-section-inner">
+    <div class="reveal">
+      <span class="s-eyebrow">Funcionalidades</span>
+      <h2 class="s-title">Todo lo que necesita<br>tu negocio, <em>unificado.</em></h2>
+      <p class="s-sub">Desde el control de tu inventario hasta la facturación de tus clientes. Libertyfin lo hace todo desde la nube.</p>
+    </div>
+    <div class="modules-grid" style="margin-top:52px">
+
+      <!-- 1. Punto de Venta -->
+      <a class="module-card reveal reveal-d1" href="pages/punto-de-venta">
+        <div class="module-icon">🛒</div>
+        <div class="module-title">Punto de Venta</div>
+        <p class="module-desc">
+          Cobra en segundos desde cualquier dispositivo. Acepta efectivo,
+          tarjeta y transferencias, sin instalaciones.
+        </p>
+        <div class="module-arrow">→</div>
+      </a>
+
+      <!-- 2. Facturación CFDI -->
+      <a class="module-card reveal reveal-d2" href="pages/facturacion">
+        <div class="module-icon">📄</div>
+        <div class="module-title">Facturación CFDI 4.0</div>
+        <p class="module-desc">
+          Emite facturas timbradas en segundos.
+          Incluye complemento de pago.
+        </p>
+        <div class="module-arrow">→</div>
+      </a>
+
+      <!-- 3. Inventario -->
+      <a class="module-card reveal reveal-d3" href="pages/inventario">
+        <div class="module-icon">📦</div>
+        <div class="module-title">Control de Inventario</div>
+        <p class="module-desc">
+          Stock en tiempo real, múltiples almacenes y alertas automáticas
+          de inventario bajo desde cualquier dispositivo, sin instalaciones.
+        </p>
+        <div class="module-arrow">→</div>
+      </a>
+
+      <!-- 4. Control de Clientes -->
+      <a class="module-card reveal reveal-d1" href="pages/clientes">
+        <div class="module-icon">👥</div>
+        <div class="module-title">Control de Clientes</div>
+        <p class="module-desc">
+          Registra a tus clientes una sola vez y mantén su historial de
+          pedidos y facturas siempre disponible, sin capturar su
+          información cada vez.
+        </p>
+        <div class="module-arrow">→</div>
+      </a>
+
+      <!-- 5. Reportes -->
+      <a class="module-card reveal reveal-d2" href="pages/reportes">
+        <div class="module-icon">📊</div>
+        <div class="module-title">Reportes en Tiempo Real</div>
+        <p class="module-desc">
+          Panel de control con ventas por día, producto y canal.
+          Exporta a Excel o PDF con un clic.
+        </p>
+        <div class="module-arrow">→</div>
+      </a>
+
+      <!-- 6. Cotizaciones -->
+      <a class="module-card reveal reveal-d3" href="pages/cotizaciones">
+        <div class="module-icon">📋</div>
+        <div class="module-title">Cotizaciones</div>
+        <p class="module-desc">
+          Genera y envía cotizaciones profesionales al instante.
+          Convierte a venta con un clic.
+        </p>
+        <div class="module-arrow">→</div>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     FEATURE SHOWCASE — TABS INTERACTIVOS
+═══════════════════════════════════════ -->
+<section class="features-mega">
+  <div class="features-mega-inner">
+    <div class="reveal text-center">
+      <span class="s-eyebrow">Cómo funciona</span>
+      <h2 class="s-title">Una plataforma,<br><em>todas las herramientas.</em></h2>
+    </div>
+    <div class="feat-tabs" style="margin-top:32px;justify-content:center">
+      <button class="feat-tab active" onclick="setFeat(0,this)">
+        <span class="feat-tab-icon">🛒</span> Punto de Venta
+      </button>
+      <button class="feat-tab" onclick="setFeat(1,this)">
+        <span class="feat-tab-icon">📄</span> Facturación CFDI
+      </button>
+      <button class="feat-tab" onclick="setFeat(2,this)">
+        <span class="feat-tab-icon">📦</span> Inventario
+      </button>
+      <button class="feat-tab" onclick="setFeat(3,this)">
+        <span class="feat-tab-icon">📊</span> Reportes
+      </button>
+    </div>
+    <div class="feat-showcase reveal" id="featShowcase">
+      <div class="feat-showcase-text">
+        <h3 class="feat-showcase-title" id="featTitle">Punto de Venta</h3>
+        <p class="feat-showcase-desc" id="featDesc">
+          Cobra en segundos desde cualquier dispositivo — tablet, celular o PC.
+          Sin instalaciones, sin hardware especial requerido.
+        </p>
+        <div class="feat-bullets" id="featBullets">
+          <div class="feat-bullet">Acepta efectivo, tarjeta y transferencias</div>
+          <div class="feat-bullet">Imprime o envía tickets por correo y WhatsApp</div>
+          <div class="feat-bullet">Descuentos, devoluciones y múltiples cajas</div>
+        </div>
+        <a class="btn btn-green btn-sm" href="pages/punto-de-venta">Conocer más →</a>
+      </div>
+      <div class="feat-showcase-img">
+        <img id="featImg"
+             src="/assets/img/feat-punto-de-venta.jpg"
+             alt="Punto de Venta"
+             loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     TESTIMONIOS
+═══════════════════════════════════════ -->
+<section class="testimonials-section">
+  <div class="lf-section-inner">
+    <div class="reveal">
+      <span class="s-eyebrow">Clientes</span>
+      <h2 class="s-title">Negocios que ya<br><em>crecen</em> con Libertyfin</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card reveal reveal-d1">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"En menos de una semana teníamos todo el inventario migrado y el equipo capacitado. La facturación CFDI nos ahorró horas de trabajo manual."</p>
+        <div class="testi-author">
+          <div class="testi-av" style="background:linear-gradient(135deg,#2563eb,#7c3aed)">CR</div>
+          <div><div class="testi-name">Carlos Rodríguez</div><div class="testi-role">Director — Distribuidora MX, CDMX</div></div>
+        </div>
+      </div>
+      <div class="testi-card reveal reveal-d2">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"Teníamos miedo de cambiar de sistema pero el soporte de Libertyfin fue increíble. Ahora vendemos 30% más gracias a los reportes de inventario."</p>
+        <div class="testi-author">
+          <div class="testi-av" style="background:linear-gradient(135deg,#059669,#0d9488)">AL</div>
+          <div><div class="testi-name">Ana López</div><div class="testi-role">Dueña — CaféRoots, Guadalajara</div></div>
+        </div>
+      </div>
+      <div class="testi-card reveal reveal-d3">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"La integración con MercadoLibre fue un game changer. El stock se actualiza solo en todos los canales. Cero errores de sobreventa desde entonces."</p>
+        <div class="testi-author">
+          <div class="testi-av" style="background:linear-gradient(135deg,#d97706,#dc2626)">MG</div>
+          <div><div class="testi-name">Miguel García</div><div class="testi-role">CEO — TechStore, Monterrey</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     PRECIOS — EN UNA SOLA LÍNEA HORIZONTAL
+═══════════════════════════════════════ -->
+<section class="pricing-preview">
+  <div class="lf-section-inner">
+    <div class="reveal text-center">
+      <span class="s-eyebrow">Precios</span>
+      <h2 class="s-title mx-auto">Simple, <em>transparente,</em><br>sin sorpresas.</h2>
+      <p class="s-sub mx-auto" style="margin-top:12px">Planes diseñados para crecer contigo. Sin permanencia.</p>
+    </div>
+    <div class="pricing-grid">
+      <!-- Básico -->
+      <div class="plan-card reveal reveal-d1">
+        <div class="plan-name">Básico</div>
+        <div class="plan-price"><sup>$</sup>299</div>
+        <div class="plan-period">MXN/mes · 1 usuario</div>
+        <ul class="plan-lis">
+          <li class="plan-li">1 caja</li>
+          <li class="plan-li">100 productos</li>
+          <li class="plan-li">Pago en efectivo</li>
+        </ul>
+        <button class="plan-btn" onclick="location.href='pages/precios'">Empieza ahora</button>
+      </div>
+      <!-- Profesional -->
+      <div class="plan-card reveal reveal-d2">
+        <div class="plan-name">Profesional</div>
+        <div class="plan-price"><sup>$</sup>599</div>
+        <div class="plan-period">MXN/mes · 4 usuarios</div>
+        <ul class="plan-lis">
+          <li class="plan-li">2 cajas</li>
+          <li class="plan-li">500 productos</li>
+          <li class="plan-li">Pago en efectivo</li>
+        </ul>
+        <button class="plan-btn" onclick="location.href='pages/precios'">Contrátanos</button>
+      </div>
+      <!-- Empresarial -->
+      <div class="plan-card reveal reveal-d3">
+        <div class="plan-name">Empresarial</div>
+        <div class="plan-price"><sup>$</sup>999</div>
+        <div class="plan-period">MXN/mes · 6 usuarios</div>
+        <ul class="plan-lis">
+          <li class="plan-li">3 cajas</li>
+          <li class="plan-li">1 sucursal · 500 productos</li>
+          <li class="plan-li">Pasarela de pago</li>
+          <li class="plan-li">SPEI / PayPal</li>
+        </ul>
+        <button class="plan-btn" onclick="location.href='pages/precios'">Solicitar demo</button>
+      </div>
+      <!-- Empresarial Plus -->
+      <div class="plan-card reveal reveal-d4">
+        <div class="plan-name">Empresarial Plus</div>
+        <div class="plan-price"><sup>$</sup>1499</div>
+        <div class="plan-period">MXN/mes · 10 usuarios</div>
+        <ul class="plan-lis">
+          <li class="plan-li">10 cajas</li>
+          <li class="plan-li">3 sucursal · Productos ilimitados</li>
+          <li class="plan-li">Pasarela de pago</li>
+          <li class="plan-li">SPEI / PayPal</li>
+          <li class="plan-li">Tarjeta de crédito</li>
+        </ul>
+        <button class="plan-btn" onclick="location.href='pages/precios'">Solicitar demo</button>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:24px">
+      <a href="pages/precios"
+         style="font-size:14px;font-weight:600;color:var(--green-d);text-decoration:none">
+        Ver todos los planes y comparar →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     CTA FINAL
+═══════════════════════════════════════ -->
+<section class="cta-banner">
+  <div class="cta-glow"></div>
+  <div class="cta-inner reveal">
+    <h2 class="cta-title">¿Listo para llevar tu negocio <em>al siguiente nivel?</em></h2>
+    <p class="cta-sub">Únete a más de 1,000 empresas en México. Sin permanencia, sin tarjeta de crédito.</p>
+    <div class="cta-btns">
+      <a class="btn btn-green" href="pages/registro">Empieza ahora</a>
+      <a class="btn btn-ghost"
+         href="pages/distribuidores"
+         style="color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.2)">
+        Hablar con ventas
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER (inyectado por shared.js) -->
+<div id="lf-footer-placeholder"></div>
+
+<!-- ═══════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════ -->
+<script src="/assets/js/shared.js"></script>
+<script src="/assets/js/index.js"></script>
+
+<!-- Script para el botón de ayuda visual y forzar calidad máxima -->
+<script>
+  (function() {
+    document.addEventListener('DOMContentLoaded', function() {
+      const unmuteBtn = document.getElementById('unmuteButton');
+      const iframe = document.getElementById('heroVideo');
+      
+      if (unmuteBtn) {
+        unmuteBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (iframe) iframe.focus();
+          unmuteBtn.setAttribute('aria-label', '¡Activa el sonido desde el reproductor!');
+          unmuteBtn.style.transform = 'scale(1.1)';
+          setTimeout(() => {
+            unmuteBtn.style.transform = '';
+            setTimeout(() => {
+              unmuteBtn.setAttribute('aria-label', 'Activar audio (haz clic en el video)');
+            }, 2000);
+          }, 200);
+        });
+      }
+
+      if (iframe) {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.postMessage(JSON.stringify({
+              event: 'command',
+              func: 'setPlaybackQuality',
+              args: ['hd1080']
+            }), '*');
+          } catch(e) {}
+        }, 2000);
+      }
+    });
+  })();
+</script>
+
+<!-- Estilos adicionales para el botón flotante y ajustes del iframe -->
+<style>
+  .browser-frame {
+    position: relative;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .video-audio-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 40px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .video-audio-btn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.05);
+  }
+  .hero-frame-wrap:hover .video-audio-btn {
+    opacity: 1;
+  }
+  @media (max-width: 768px) {
+    .video-audio-btn {
+      opacity: 1;
+      width: 40px;
+      height: 40px;
+      bottom: 12px;
+      right: 12px;
+    }
+  }
+  .browser-frame iframe {
+    width: 100%;
+    min-height: 400px;
+    aspect-ratio: 16 / 9;
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .browser-frame iframe {
+      min-height: 220px;
+    }
+  }
+  /* Override de márgenes generales */
+  .s-eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--green);
+    background: rgba(34,197,94,0.1);
+    padding: 5px 10px;
+    border-radius: 30px;
+    margin-bottom: 16px;
+  }
+  .s-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .s-sub {
+    font-size: 16px;
+    color: var(--ink3);
+    max-width: 560px;
+    line-height: 1.6;
+  }
+  .text-center {
+    text-align: center;
+  }
+  .mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  :root {
+    --green: #22c55e;
+    --green-d: #16a34a;
+    --green-light: #e8f7ef;
+    --green-mid: #bbf7d0;
+    --ink: #0f172a;
+    --ink2: #334155;
+    --ink3: #64748b;
+    --ink4: #94a3b8;
+    --border: #e2e8f0;
+    --border2: #cbd5e1;
+    --bg: #f9fafb;
+    --shadow: 0 12px 30px rgba(0,0,0,0.05);
+    --r-lg: 24px;
+  }
+  body {
+    font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: var(--ink);
+  }
+  .lf-section-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    border-radius: 100px;
+    padding: 12px 28px;
+    transition: all 0.2s;
+    text-decoration: none;
+    font-size: 15px;
+  }
+  .btn-green {
+    background: var(--green);
+    color: white;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.3);
+  }
+  .btn-green:hover {
+    background: var(--green-d);
+    transform: scale(1.02);
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink2);
+  }
+  .btn-ghost:hover {
+    border-color: var(--green);
+    background: rgba(34,197,94,0.05);
+  }
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</body>
+</html>

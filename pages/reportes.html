@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportes — Libertyfin</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+body{padding-top:64px}
+.feat-hero{padding:80px 24px 64px;background:linear-gradient(135deg,#f0fdf4 0%,white 60%);border-bottom:1px solid var(--border)}
+.feat-hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.feat-hero-tag{display:inline-block;background:var(--green);color:white;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;margin-bottom:16px}
+.feat-hero-title{font-family:'Nunito',sans-serif;font-size:clamp(32px,4.5vw,52px);font-weight:900;letter-spacing:-2px;line-height:1.05;color:var(--ink);margin-bottom:18px}
+.feat-hero-title em{font-style:normal;color:var(--green)}
+.feat-hero-desc{font-size:16px;color:var(--ink3);line-height:1.7;margin-bottom:28px}
+.feat-hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+
+/* Dashboard mock */
+.dash-mock{background:white;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.1);padding:16px}
+.dash-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.dash-kpi{border:1px solid #eaecf0;border-radius:10px;padding:10px 12px;position:relative;overflow:hidden}
+.dash-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.dash-kpi.gr::before{background:var(--green)}.dash-kpi.bl::before{background:#3b82f6}.dash-kpi.am::before{background:#f59e0b}.dash-kpi.re::before{background:#ef4444}
+.dash-kpi-v{font-family:'Nunito',sans-serif;font-size:18px;font-weight:900;letter-spacing:-0.5px;color:var(--ink)}
+.dash-kpi-l{font-size:9px;color:#9ca3af;margin-top:1px}
+.dash-kpi-t{font-size:9px;font-weight:700;margin-top:3px}
+.dash-kpi-t.up{color:var(--green-d)}.dash-kpi-t.dn{color:#ef4444}
+.dash-chart{border:1px solid #eaecf0;border-radius:10px;padding:10px;margin-bottom:8px}
+.dash-chart-title{font-size:9px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.dash-chart-svg{width:100%;height:80px}
+.dash-bars{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dash-bar-item{border:1px solid #eaecf0;border-radius:10px;padding:10px;text-align:center}
+.dash-bar-label{font-size:9px;color:#9ca3af;margin-bottom:6px}
+.dash-donut{width:48px;height:48px;border-radius:50%;border:6px solid;margin:0 auto 6px;position:relative}
+.dash-bar-val{font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:var(--ink)}
+
+.feat-section{padding:80px 24px;background:white}
+.feat-section.gray{background:var(--bg)}
+.feat-inner{max-width:1100px;margin:0 auto}
+.feat-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px}
+.feat-card{background:white;border:1px solid var(--border);border-radius:16px;padding:24px;transition:all 0.25s}
+.feat-card.gray-bg{background:var(--bg)}
+.feat-card:hover{border-color:var(--green);transform:translateY(-3px);box-shadow:0 8px 32px rgba(34,197,94,0.1)}
+.feat-card-icon{font-size:28px;margin-bottom:12px}
+.feat-card-title{font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--ink);margin-bottom:8px}
+.feat-card-desc{font-size:13.5px;color:var(--ink3);line-height:1.65}
+
+.reports-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:48px}
+.report-item{display:flex;align-items:center;gap:14px;padding:16px;background:white;border:1px solid var(--border);border-radius:12px;transition:all 0.2s;cursor:pointer}
+.report-item:hover{border-color:var(--green);box-shadow:0 4px 16px rgba(34,197,94,0.1);transform:translateY(-2px)}
+.report-icon{width:42px;height:42px;border-radius:10px;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.report-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.report-desc{font-size:12px;color:var(--ink3)}
+.report-arrow{color:var(--green);font-size:16px;margin-left:auto;flex-shrink:0}
+
+.other-modules{padding:72px 24px;background:var(--bg);text-align:center}
+.other-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:36px;max-width:900px;margin-left:auto;margin-right:auto}
+.other-card{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 12px;text-decoration:none;color:inherit;transition:all 0.2s;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+.other-card:hover{border-color:var(--green);transform:translateY(-3px)}
+.other-icon{font-size:28px}
+.other-name{font-size:12.5px;font-weight:700;color:var(--ink)}
+
+@media(max-width:900px){.feat-hero-inner{grid-template-columns:1fr}.feat-grid-3,.reports-list{grid-template-columns:1fr 1fr}.other-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.feat-grid-3,.reports-list{grid-template-columns:1fr}.other-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="lf-nav-placeholder"></div>
+
+<section class="feat-hero">
+  <div class="feat-hero-inner">
+    <div>
+      <span class="feat-hero-tag">Reportes y Análisis</span>
+      <h1 class="feat-hero-title">Datos claros para<br><em>decisiones inteligentes.</em></h1>
+      <p class="feat-hero-desc">Dashboards en tiempo real con toda la información de tu negocio. Ventas, inventario, clientes y finanzas en un solo lugar.</p>
+      <div class="feat-hero-btns">
+        <a class="btn btn-green" href="registro.php">Pruébalo gratis</a>
+        <a class="btn btn-ghost" href="#">Ver demo</a>
+      </div>
+    </div>
+    <div style="font-size:1px">
+      <div class="dash-mock">
+        <div class="dash-kpis">
+          <div class="dash-kpi gr"><div class="dash-kpi-v">$284k</div><div class="dash-kpi-l">Ventas del mes</div><div class="dash-kpi-t up">↑ 18.3% vs mes ant.</div></div>
+          <div class="dash-kpi bl"><div class="dash-kpi-v">1,248</div><div class="dash-kpi-l">Órdenes totales</div><div class="dash-kpi-t up">↑ 7.1%</div></div>
+          <div class="dash-kpi am"><div class="dash-kpi-v">$227</div><div class="dash-kpi-l">Ticket promedio</div><div class="dash-kpi-t up">↑ 4.2%</div></div>
+          <div class="dash-kpi re"><div class="dash-kpi-v">587</div><div class="dash-kpi-l">Clientes activos</div><div class="dash-kpi-t up">↑ 12%</div></div>
+        </div>
+        <div class="dash-chart">
+          <div class="dash-chart-title">Ventas diarias — Últimos 14 días</div>
+          <svg class="dash-chart-svg" viewBox="0 0 340 80" id="repChart"></svg>
+        </div>
+        <div class="dash-bars">
+          <div class="dash-bar-item"><div class="dash-bar-label">Efectivo</div><div class="dash-donut" style="border-color:var(--green);border-right-color:transparent;transform:rotate(45deg)"></div><div class="dash-bar-val">52%</div></div>
+          <div class="dash-bar-item"><div class="dash-bar-label">Tarjeta</div><div class="dash-donut" style="border-color:#3b82f6;border-right-color:transparent;border-bottom-color:transparent;transform:rotate(45deg)"></div><div class="dash-bar-val">35%</div></div>
+          <div class="dash-bar-item"><div class="dash-bar-label">Transfer.</div><div class="dash-donut" style="border-color:#f59e0b;border-right-color:transparent;border-bottom-color:transparent;border-left-color:transparent;transform:rotate(45deg)"></div><div class="dash-bar-val">13%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tipos de reportes -->
+<section class="feat-section">
+  <div class="feat-inner">
+    <div class="reveal">
+      <span class="s-eyebrow">Tipos de reportes</span>
+      <h2 class="s-title">Toda la información<br><em>que necesitas.</em></h2>
+    </div>
+    <div class="reports-list">
+      <div class="report-item reveal reveal-d1"><div class="report-icon">💰</div><div><div class="report-title">Reporte de ventas</div><div class="report-desc">Por día, semana, mes, vendedor, sucursal o producto</div></div><span class="report-arrow">→</span></div>
+      <div class="report-item reveal reveal-d2"><div class="report-icon">📦</div><div><div class="report-title">Reporte de inventario</div><div class="report-desc">Stock actual, movimientos, productos más vendidos</div></div><span class="report-arrow">→</span></div>
+      <div class="report-item reveal reveal-d1"><div class="report-icon">👥</div><div><div class="report-title">Reporte de clientes</div><div class="report-desc">Frecuencia de compra, ticket promedio, saldos pendientes</div></div><span class="report-arrow">→</span></div>
+      <div class="report-item reveal reveal-d2"><div class="report-icon">📄</div><div><div class="report-title">Reporte fiscal</div><div class="report-desc">CFDI emitidos, IVA acumulado, complementos de pago</div></div><span class="report-arrow">→</span></div>
+      <div class="report-item reveal reveal-d1"><div class="report-icon">💳</div><div><div class="report-title">Reporte de caja</div><div class="report-desc">Cortes por turno, métodos de pago, diferencias</div></div><span class="report-arrow">→</span></div>
+      <div class="report-item reveal reveal-d2"><div class="report-icon">📊</div><div><div class="report-title">Reporte de margen</div><div class="report-desc">Costo vs precio de venta, rentabilidad por producto</div></div><span class="report-arrow">→</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Funcionalidades -->
+<section class="feat-section gray">
+  <div class="feat-inner">
+    <div class="reveal text-center">
+      <span class="s-eyebrow">Funcionalidades</span>
+      <h2 class="s-title">Reportes que realmente<br><em>te ahorran tiempo.</em></h2>
+    </div>
+    <div class="feat-grid-3">
+      <div class="feat-card gray-bg reveal reveal-d1"><div class="feat-card-icon">⚡</div><div class="feat-card-title">Tiempo real</div><p class="feat-card-desc">Los datos se actualizan al momento de cada venta. Toma decisiones con información fresca, no de ayer.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d2"><div class="feat-card-icon">📥</div><div class="feat-card-title">Exporta en un clic</div><p class="feat-card-desc">Descarga cualquier reporte en Excel, PDF o CSV. Compártelo con tu contador o tu equipo al instante.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d3"><div class="feat-card-icon">📱</div><div class="feat-card-title">Acceso desde cualquier lugar</div><p class="feat-card-desc">Consulta tus reportes desde el celular, tablet o PC. No necesitas estar en la tienda para saber cómo va el negocio.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d1"><div class="feat-card-icon">📅</div><div class="feat-card-title">Comparativas periódicas</div><p class="feat-card-desc">Compara ventas semana a semana, mes a mes o año contra año. Identifica tendencias y estacionalidades.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d2"><div class="feat-card-icon">🔔</div><div class="feat-card-title">Alertas automáticas</div><p class="feat-card-desc">Recibe resúmenes diarios o semanales por correo. Alertas cuando las ventas bajen de un umbral definido.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d3"><div class="feat-card-icon">🏢</div><div class="feat-card-title">Multi-sucursal</div><p class="feat-card-desc">Ve el rendimiento consolidado o por sucursal individual. Compara el desempeño entre tiendas fácilmente.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="other-modules">
+  <div class="lf-section-inner">
+    <div class="reveal"><span class="s-eyebrow">Más módulos</span><h2 class="s-title">Explora toda la plataforma</h2></div>
+    <div class="other-grid reveal">
+      <a class="other-card" href="punto-de-venta"><div class="other-icon">🛒</div><div class="other-name">Punto de Venta</div></a>
+      <a class="other-card" href="facturacion"><div class="other-icon">📄</div><div class="other-name">Facturación CFDI</div></a>
+      <a class="other-card" href="inventario"><div class="other-icon">📦</div><div class="other-name">Inventario</div></a>
+      <a class="other-card" href="clientes"><div class="other-icon">👥</div><div class="other-name">CRM Clientes</div></a>
+      <a class="other-card" href="cotizaciones"><div class="other-icon">📋</div><div class="other-name">Cotizaciones</div></a>
+    </div>
+  </div>
+</section>
+
+<div id="lf-footer-placeholder"></div>
+<script src="../js/shared.js"></script>
+<script>
+(function(){
+  const svg=document.getElementById('repChart');if(!svg)return;
+  const data=[28,42,35,55,38,62,45,70,52,68,48,75,58,82];
+  const W=340,H=80,p={t:6,r:6,b:14,l:6};
+  const iW=W-p.l-p.r,iH=H-p.t-p.b,max=Math.max(...data)*1.1;
+  const pts=data.map((v,i)=>({x:p.l+(i/(data.length-1))*iW,y:p.t+iH*(1-v/max)}));
+  const path=pts.map((pt,i)=>i===0?`M${pt.x},${pt.y}`:`C${(pts[i-1].x+pt.x)/2},${pts[i-1].y} ${(pts[i-1].x+pt.x)/2},${pt.y} ${pt.x},${pt.y}`).join(' ');
+  const area=path+` L${pts[pts.length-1].x},${p.t+iH} L${pts[0].x},${p.t+iH} Z`;
+  svg.innerHTML=`<defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e" stop-opacity="0.2"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient></defs><path d="${area}" fill="url(#rg)"/><path d="${path}" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>`;
+})();
+</script>
+</body>
+</html>

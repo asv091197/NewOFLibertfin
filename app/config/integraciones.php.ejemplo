@@ -1,0 +1,423 @@
+<?php
+/**
+ * INTEGRACIONES · credenciales de servicios externos
+ *
+ * Copiar como config/integraciones.php y llenar lo que se use.
+ * Este archivo NUNCA va al repositorio: agrégalo al .gitignore.
+ *
+ * ──────────────────────────────────────────────────────────────────
+ * POR QUÉ ESTE ARCHIVO EXISTE
+ *
+ * En el sistema anterior las credenciales de Emida estaban escritas
+ * dentro de EmidaServicios/inicio.php:
+ *
+ *     $username = "juanc141_alexis";
+ *     $password = "•••••••";
+ *
+ * Un archivo de código con contraseñas dentro termina en el
+ * repositorio, en el respaldo y en el correo de quien lo compartió.
+ * Aquí viven fuera de public/ y fuera de git.
+ *
+ * ──────────────────────────────────────────────────────────────────
+ * CÓMO FUNCIONA
+ *
+ * Una integración sin credenciales queda APAGADA: su sección no
+ * aparece en el menú y sus rutas responden 404. No hay que desactivar
+ * nada a mano — basta con no llenarla.
+ *
+ * Así una empresa que vende servicios legales no ve "Recargas" en su
+ * menú, y una tienda que sí las vende solo tiene que llenar su bloque.
+ * ──────────────────────────────────────────────────────────────────
+ */
+return [
+
+    // ── Recargas telefónicas ────────────────────────────────────
+    // Tiempo aire y pago de servicios. Proveedor: Emida.
+    // OJO: el sistema anterior llama a estos proxies por HTTP sin
+    // cifrar. Si se reactiva, que sea sobre HTTPS.
+    'emida' => [
+        'activo'          => false,
+        'usuario'         => '',   // EMIDA_USERNAME
+        'clave'           => '',   // EMIDA_PASSWORD
+        'merchant_id'     => '',   // EMIDA_MERCHANT_ID · identifica al comercio
+        'clerk_password'  => '',   // EMIDA_CLERK_PASSWORD · identifica la terminal
+        // La integración es SOAP: se conecta al WSDL, no a una URL REST.
+        // El sistema anterior apunta a http://104.248.179.142/webServices.wsdl
+        // SIN cifrar. Pídele a Emida la dirección con HTTPS.
+        'wsdl'            => '',
+        'timeout'         => 30,
+        'sandbox'         => true,
+
+        // El aviso de "conexión sin cifrar" sale mientras el WSDL sea
+        // http://. Ponerlo en true lo oculta, pero NO cifra nada: el
+        // usuario, la clave y el teléfono del cliente siguen viajando en
+        // claro. Úsalo solo si ya le pediste a Emida un endpoint con
+        // HTTPS y estás esperando que lo entreguen.
+        'acepto_sin_cifrar' => false,
+
+        // ── CÓMO SE HABLA CON EMIDA ────────────────────────────
+        //
+        // El endpoint real es ws.terecargamos.com:8448, y Emida solo
+        // acepta conexiones desde direcciones que tiene autorizadas.
+        // Desde un hosting cualquiera da "Connection refused".
+        //
+        // El sistema anterior nunca habló con Emida directamente: usaba
+        // 104.248.179.142, un servidor propio cuya IP sí está en la
+        // lista, que reenvía las peticiones.
+        //
+        // Dos caminos:
+        //
+        //   A) Pedirle a Emida que autorice la IP de este servidor.
+        //      Entonces se deja `proxy` vacío y va directo. Es lo más
+        //      limpio: un salto menos y un servidor menos que mantener.
+        //
+        //   B) Seguir pasando por el intermediario. Se pone su dirección
+        //      aquí. Funciona hoy, sin pedirle nada a nadie.
+        //
+        'proxy'        => '',   // p.ej. 'http://104.248.179.142'
+        'proxy_saldo'  => 'get_balance.php',
+        'proxy_venta'  => 'pinDistSale.php',
+        'proxy_lookup' => 'lookup_transaction.php',
+
+        // Los nombres de las operaciones SOAP, si el proveedor las cambia.
+        // Vacío = se usan las que trae el sistema, que salieron de los
+        // proxies del sistema anterior:
+        //   saldo   GetMerchantBalance
+        //   vender  PinDistSale
+        //   validar CheckTrxById
+        'op_saldo'   => '',
+        'op_vender'  => '',
+        'op_validar' => '',
+    ],
+
+    // ── Facturación CFDI ────────────────────────────────────────
+    'facturapi' => [
+        'activo'         => false,
+        'llave'          => '',   // FACTURAPI_API_KEY
+        'llave_prueba'   => '',   // FACTURAPI_API_TEST_KEY
+        'organizacion'   => '',   // FACTURAPI_..._ORGANIZATION_ID
+        'sandbox'        => true,
+    ],
+
+    // ── Cobros en línea · PAGA DE TODO ──────────────────────────
+    //
+    // Un solo bloque para las tres formas en línea: tarjeta, SPEI y
+    // efectivo en tienda. Se llama `spei` por historia, no porque sea
+    // solo eso; renombrarlo obligaría a tocar media aplicación.
+    //
+    // OJO: PAGA DE TODO, NO PAGA LA ESCUELA.
+    //
+    // Son dos plataformas del mismo proveedor (Cobroscontarjeta.com) y
+    // la documentación viene mezclada, pero no son intercambiables:
+    //
+    //                   Paga la Escuela        Paga de Todo
+    //   host            pagalaescuela.mx       pagadetodo.mx
+    //   identificador   SchoolID               BusinessID
+    //
+    // Con el host de una y las credenciales de la otra, el proveedor
+    // contesta "El ID de la escuela es obligatorio" aunque todo lo demás
+    // esté bien, y uno se pasa la tarde buscando el error donde no está.
+    'spei' => [
+        'activo'         => false,
+        'sandbox'        => true,
+
+        // ── CREDENCIALES ───────────────────────────────────────
+        'usuario'        => '',
+        'clave'          => '',
+        // ── LAS DEL SANDBOX ────────────────────────────────────
+        //
+        // Paga de Todo usa la MISMA dirección para pruebas y para cobrar
+        // de verdad: lo que decide si un cobro es real son las
+        // credenciales. Con 'sandbox' => true se usan SOLO estas; si
+        // están vacías, o son las mismas de arriba, no se genera nada.
+        // Nunca se usan las de producción en Sandbox.
+        //
+        // Son las del panel https://pagadetodo.mx/Sandbox/Login.aspx: el
+        // par que funciona en su "Emulador SPEI" es el de pruebas.
+        'usuario_prueba' => '',
+        'clave_prueba'   => '',
+        'integracion_id' => '',
+        // El IntegrationID y BusinessID del Sandbox, si son distintos (la
+        // documentación los manda "por correo"). Vacíos = los de producción.
+        'integracion_id_prueba' => '',
+        'negocio_id_prueba'     => '',
+
+        // ── EL IDENTIFICADOR DEL COMERCIO ──────────────────────
+        //
+        // BusinessID. Lo piden los tres servicios de Paga de Todo.
+        'negocio_id'     => '',
+        // Solo si vienes de Paga la Escuela y todavía no mueves nada: se
+        // usa como respaldo cuando `negocio_id` está vacío.
+        'escuela_id'     => '',
+
+        // ── LAS DIRECCIONES ────────────────────────────────────
+        //
+        // CADA FORMA DE PAGO ES UN SERVICIO DISTINTO. No se elige con un
+        // código: se elige con la dirección a la que se pega.
+        //
+        //   /Service/GenerarLigaIndi            tarjeta
+        //   /Service/GenerarClabeIndi           SPEI
+        //   /Service/GenerarReferenciaIndi      efectivo en tienda
+        //   /Service/ConsultarEstatusLigaIndi   ¿ya pagó la tarjeta?
+        //
+        // CON `host` BASTA. El sistema le agrega la ruta de cada servicio.
+        //
+        // LAS CUATRO DE ABAJO DÉJALAS VACÍAS salvo que el proveedor te
+        // haya dado una dirección distinta a la normal. Son el campo que
+        // más caro se paga cuando se llena de más, porque pegarle al
+        // servicio equivocado no da un error claro: da un rechazo
+        // genérico, o peor, hace algo que nadie pidió.
+        //
+        // Dos que han pasado de verdad:
+        //
+        //   url_referencia => .../GenerarLigaDomiciliacionIndi
+        //       El cobro en tienda pegándole al servicio de tarjeta
+        //       tokenizada. Nunca iba a devolver un código de barras.
+        //
+        //   url_estado => .../PagarDomiciliacionIndi
+        //       Preguntar "¿ya pagó?" al servicio que COBRA una tarjeta
+        //       guardada. Eso no consulta: cobra.
+        //
+        // El sistema revisa que cada una apunte a su servicio y, si no,
+        // la ignora y usa la buena. Pero lo avisa en Ajustes y en el log:
+        // una dirección mal puesta no debe quedarse ahí.
+        //
+        // Para ver a dónde va a pegar cada forma de pago antes de
+        // intentar cobrar:
+        //
+        //   php app/bin/revisar-pagos.php
+        //   php app/bin/revisar-pagos.php --probar
+        //
+        // ── CREDENCIALES POR FORMA DE PAGO (opcional) ──────────
+        //
+        // Paga de Todo da de alta cada forma de pago por convenio, y el
+        // sistema anterior tenía un juego DISTINTO para cada una:
+        //
+        //   SPEI_*        → tarjeta / CLABE   (liga y clabe)
+        //   REFERENCIA_*  → efectivo en tienda (referencia)
+        //
+        // Si a ti te dieron usuario, clave, IntegrationID o BusinessID
+        // distintos para alguna, ponlos aquí. Vacío = usa los generales
+        // de arriba. Si pones `usuario_X`, pon también `clave_X`: van
+        // siempre como pareja.
+        //
+        // X es: liga (tarjeta) · clabe (SPEI) · referencia (tienda)
+        //
+        //   'usuario_referencia'        => '',  // REFERENCIA_USER
+        //   'clave_referencia'          => '',  // REFERENCIA_PASSWORD
+        //   'integracion_id_referencia' => '',  // REFERENCIA_INTEGRATION_ID
+        //   'negocio_id_referencia'     => '',  // REFERENCIA_INTEGRATION_BUSINESS_ID
+        //
+        //   'usuario_clabe'        => '',       // SPEI_USER
+        //   'clave_clabe'          => '',       // SPEI_PASSWORD
+        //   'integracion_id_clabe' => '',       // SPEI_INTEGRATION_ID
+        //   'negocio_id_clabe'     => '',       // SPEI_BUSINESS_ID
+        //
+        // (mismos nombres con _liga para la tarjeta)
+        //
+        // Para ver qué usa cada una:  php app/bin/revisar-pagos.php
+
+        'host'            => 'https://pagadetodo.mx/Pagadetodo',
+        'url_liga'        => '',
+        'url_clabe'       => '',
+        'url_referencia'  => '',
+        'url_estado'      => '',
+
+        // ── EL SECRETO DE LOS AVISOS ───────────────────────────
+        //
+        // ESTO ES OBLIGATORIO PARA QUE SPEI Y TIENDA FUNCIONEN.
+        //
+        // Paga de Todo no te consulta si el cliente pagó en el OXXO: te
+        // AVISA, pegándole a unas direcciones tuyas. Esas direcciones no
+        // pueden pedir usuario y contraseña —quien llama es un servidor
+        // suyo, sin sesión— así que lo que las protege es este secreto
+        // metido en la URL.
+        //
+        // Sin él, cualquiera que adivine una referencia podría marcar
+        // ventas como pagadas escribiendo una dirección en el navegador.
+        //
+        // Genera uno largo y aleatorio, por ejemplo con:
+        //   php -r "echo bin2hex(random_bytes(24)), PHP_EOL;"
+        'secreto_webhook' => '',
+
+        // OPCIONAL: un segundo secreto que se acepta igual que el de
+        // arriba. Sirve si registraste algunas direcciones del panel con
+        // otro secreto. NO separa ambientes: Paga de Todo manda los pagos
+        // reales y los del emulador a las mismas direcciones, así que
+        // rechazar por ambiente rebotaba depósitos reales.
+        'secreto_webhook_prueba' => '',
+
+        // LAS DIRECCIONES DEL SISTEMA ANTERIOR (/Service/ConsultaClabe,
+        // /Service/PagoClabe, /Service/CancelaPago, /Service/PagoLinea…)
+        // también se atienden, para la cuenta que todavía las tenga dadas
+        // de alta. No llevan secreto: solo pasan las IPs de Paga de Todo,
+        // que ya vienen en el código. Si el proveedor agrega una, va aquí,
+        // separadas por coma. El registro dice cuál se rechazó.
+        'ips_proveedor' => '',
+
+        // ── PAGOS EN LIGAS DE PRUEBA ───────────────────────────
+        //
+        // El Sandbox de Paga de Todo genera CLABEs que ACEPTAN
+        // transferencias reales, y su aviso es idéntico al del emulador.
+        // Por eso, en una liga creada con 'sandbox' => true se rechaza
+        // TODO pago: si era dinero real, el proveedor se lo regresa al
+        // cliente. Las ligas de producción no se tocan.
+        //
+        // Para probar con el emulador ponlo en true, y de vuelta a false
+        // al terminar.
+        'aceptar_pagos_prueba' => false,
+
+        // Y da de alta ESTAS direcciones en el panel del Sandbox, en la
+        // pestaña EndPoint, con tu secreto DENTRO DE LA RUTA (no como
+        // ?k=: el proveedor le añade «/?r=REFERENCIA» al final y detrás
+        // de un ?k= rompe el secreto y la referencia):
+        //
+        //   Comercios (efectivo en tienda)
+        //     Consultar referencia  https://TU-DOMINIO/pagadetodo/SECRETO/consulta-referencia
+        //     Pagar referencia      https://TU-DOMINIO/pagadetodo/SECRETO/pago-referencia
+        //     Cancelar pago         https://TU-DOMINIO/pagadetodo/SECRETO/cancela-pago
+        //
+        //   Pago por SPEI
+        //     Consultar clabe       https://TU-DOMINIO/pagadetodo/SECRETO/consulta-clabe
+        //     Pagar clabe           https://TU-DOMINIO/pagadetodo/SECRETO/pago-clabe
+        //     Cancelar pago         https://TU-DOMINIO/pagadetodo/SECRETO/cancela-pago
+        //
+        //   Pago en línea (tarjeta)
+        //     Pagar liga            https://TU-DOMINIO/pagadetodo/SECRETO/pago-liga
+        //
+        // `php app/bin/revisar-pagos.php` te las imprime con tu dominio.
+        //
+        // En producción tienen que ser HTTPS. El proveedor lo exige.
+
+        // ── CONTADO ────────────────────────────────────────────
+        //
+        // `41` en producción y `401` en el Sandbox. Son LA MISMA cosa: el
+        // proveedor lo confirmó por correo. NO sirven para elegir método
+        // de pago, y solo los recibe la liga de tarjeta.
+        //
+        // `payment_types` es el de producción. En Sandbox se usa
+        // `payment_types_prueba` (vacío = 401): la documentación dice que
+        // 401 solo existe en el Sandbox.
+        //
+        // Vacío = se elige solo según `sandbox`.
+        'payment_types' => '',
+
+        // ── EL LARGO DE LA REFERENCIA ──────────────────────────
+        //
+        // 15 dígitos en Paga de Todo. Con 13 el proveedor contesta el
+        // código 22, "El formato de la referencia es incorrecto".
+        //
+        // Vacío = 15.
+        'digitos_referencia' => '',
+
+        // ── LÍMITES DEL CONVENIO ───────────────────────────────
+        //
+        // El proveedor rechaza fuera de rango con el código 18. Se revisa
+        // antes de llamarlo para que el cajero lea algo que entienda en
+        // vez de un número.
+        'monto_min' => 50,
+        'monto_max' => 15000,
+
+        'dias_vigencia'  => 3,
+        'timeout'        => 30,
+
+        // CÓMO APARECE TU NEGOCIO EN LA CAJA DE LA TIENDA.
+        // Casi nunca es el nombre comercial: es el que registró el
+        // proveedor al abrir el convenio. Si el cliente dice el
+        // equivocado, el cajero no lo encuentra y lo manda de regreso.
+        'nombre_convenio' => '',
+
+        // Dónde se puede pagar, separadas por coma. Depende del
+        // convenio: no todos aceptan las mismas cadenas, y una lista
+        // fija manda gente a una tienda donde la van a rechazar.
+        'tiendas' => 'OXXO, 7-Eleven, Farmacias Guadalajara, Circle K',
+    ],
+    // ── Cargos recurrentes ──────────────────────────────────────
+    'domiciliacion' => [
+        'activo'         => false,
+        'usuario'        => '',
+        'clave'          => '',
+        'integracion_id' => '',
+        'negocio_id'     => '',
+        'url_liga'       => '',
+        'url_pagar'      => '',
+        'url_cancelar'   => '',
+        'sandbox'        => true,
+    ],
+
+    // ── PayPal ──────────────────────────────────────────────────
+    'paypal' => [
+        'activo'   => false,
+        'cliente'  => '',
+        'secreto'  => '',
+        'webhook'  => '',
+        'sandbox'  => true,
+    ],
+
+    // ── Correo saliente ─────────────────────────────────────────
+    'smtp' => [
+        'activo'  => false,
+        'host'    => '',
+        'usuario' => '',
+        'clave'   => '',
+        'puerto'  => 587,
+        'desde'   => '',
+        'nombre'  => '',
+    ],
+
+    // ── cPanel · crear bases de empresas nuevas ─────────────────
+    // Solo lo usa la capa de plataforma, no una empresa.
+    'cpanel' => [
+        'activo'  => false,
+        'host'    => '',
+        'usuario' => '',
+        'token'   => '',
+    ],
+
+    // ─────────────────────────────────────────────────────────────
+    //  ENVÍOS · Envia.com
+    // ─────────────────────────────────────────────────────────────
+    //
+    //  Una sola cuenta para más de cien paqueterías: DHL, FedEx,
+    //  Estafeta, Paquete Express, Redpack. Se les pide precio a todas
+    //  de una vez y se elige la que convenga.
+    //
+    //  DÓNDE SE SACA EL TOKEN
+    //
+    //  Panel de Envia.com → Developers → Tokens. Hay DOS, y son
+    //  llaves distintas:
+    //
+    //    · El de Sandbox sirve para probar. Las guías que genera no
+    //      valen para mandar nada y no se cobran.
+    //    · El de producción cobra de verdad, cada guía, a tu saldo.
+    //
+    //  NO SE PUEDEN INTERCAMBIAR. La de producción no autentica en
+    //  Sandbox ni al revés, y el error que devuelve no dice que ése
+    //  sea el problema: por eso van en campos separados y `sandbox`
+    //  decide cuál se usa.
+    //
+    //  Para probar que quedó: php app/bin/revisar-envios.php --cotizar
+    //
+    'envia' => [
+        'activo'       => false,
+        // true mientras pruebas. Ponlo en false el día que vayas a
+        // mandar paquetes de verdad.
+        'sandbox'      => true,
+        'token'        => '',   // el de producción
+        'token_prueba' => '',   // el de Sandbox
+
+        //  CÓMO SALE IMPRESA LA ETIQUETA
+        //
+        //  Déjalo así si imprimes en impresora térmica de rollo, que es
+        //  lo normal. Si imprimes en hoja carta, pon 'PAPER_LETTER'.
+        //
+        //    formato:  PDF (cualquier impresora) · ZPL (Zebra) · PNG
+        //    tamaño:   STOCK_* es rollo adhesivo, PAPER_* es hoja suelta
+        //
+        //  No todas las paqueterías aceptan todos los tamaños. Si una no
+        //  lo acepta, el error lo dice con el nombre del campo y aquí se
+        //  cambia, sin tocar código.
+        'formato_etiqueta' => 'PDF',
+        'tamano_etiqueta'  => 'STOCK_4X6',
+    ],
+];

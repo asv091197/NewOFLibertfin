@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Términos y Condiciones | Libertyfin</title>
+    <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+    
+    <!-- Meta tags para SEO -->
+    <meta name="description" content="Términos y condiciones de uso de Libertyfin. Conoce las políticas, derechos y obligaciones como usuario de la plataforma.">
+    <meta name="keywords" content="términos y condiciones, libertyfin, políticas, legal, condiciones de uso">
+    <meta name="author" content="Libertyfin">
+    
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/main.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Poppins", sans-serif;
+            background: #ffffff;
+            color: #1e293b;
+            line-height: 1.5;
+            padding-top:64px
+        }
+
+        /* Variables */
+        :root {
+            --ink: #0f172a;
+            --green: #10b981;
+        }
+
+        /* ===== PAGE HERO (como en distribuidores) ===== */
+        .page-hero {
+            padding: 60px 24px 64px;
+            text-align: center;
+            background: var(--ink);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-hero-glow {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, 0.12);
+            filter: blur(90px);
+            top: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .page-hero-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .page-hero .s-eyebrow {
+            color: var(--green);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .page-hero .s-title {
+            color: white;
+            font-size: clamp(34px, 5vw, 60px);
+            font-weight: 700;
+            max-width: 800px;
+            margin: 0 auto 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .page-hero .s-sub {
+            color: rgba(255, 255, 255, 0.7);
+            margin: 16px auto 0;
+            font-size: 1rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Meta badges dentro del hero */
+        .hero-meta {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 28px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .hero-meta span i {
+            margin-right: 0.5rem;
+            color: var(--green);
+        }
+
+        /* Botones */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn-green {
+            background: var(--green);
+            color: white;
+            border: none;
+        }
+
+        .btn-green:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--green);
+            color: var(--green);
+            transform: translateY(-2px);
+        }
+
+        /* ===== CONTENEDOR PRINCIPAL - DOS COLUMNAS ===== */
+        .legal-wrapper {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 3rem 2rem 5rem;
+            display: flex;
+            gap: 4rem;
+            align-items: flex-start;
+        }
+
+        /* ===== COLUMNA IZQUIERDA (sticky) ===== */
+        .legal-sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 100px;
+        }
+
+        .legal-toc-section h2 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .toc-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .toc-grid a {
+            font-size: 0.9rem;
+            color: #334155;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: block;
+            padding: 0.2rem 0;
+        }
+
+        .toc-grid a:hover {
+            color: var(--green);
+            padding-left: 0.5rem;
+        }
+
+        .toc-grid a.active {
+            color: var(--green);
+            border-left: 2px solid var(--green);
+            padding-left: 0.75rem;
+        }
+
+        /* ===== COLUMNA DERECHA ===== */
+        .legal-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Tarjeta de información de la empresa */
+        .company-card {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            border: 1px solid #eef2ff;
+        }
+
+        .company-card p {
+            font-size: 0.85rem;
+            color: #475569;
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
+
+        /* Secciones */
+        .legal-section {
+            margin-bottom: 2.5rem;
+            scroll-margin-top: 100px;
+        }
+
+        .legal-section h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 0.75rem;
+        }
+
+        .legal-section p {
+            margin-bottom: 1rem;
+            color: #334155;
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+
+        .legal-section a {
+            color: var(--green);
+            text-decoration: none;
+        }
+
+        .legal-section a:hover {
+            text-decoration: underline;
+        }
+
+        /* Notas */
+        .legal-note-important {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+        }
+
+        .legal-note-important p {
+            margin-bottom: 0;
+            color: #991b1b;
+            font-size: 0.85rem;
+        }
+
+        .legal-note-important i {
+            margin-right: 0.5rem;
+        }
+
+        .legal-note-warning {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+        }
+
+        .legal-note-warning p {
+            margin-bottom: 0;
+            color: #92400e;
+            font-size: 0.85rem;
+        }
+
+        .legal-note-info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+        }
+
+        .legal-note-info p {
+            margin-bottom: 0;
+            color: #1e40af;
+            font-size: 0.85rem;
+        }
+
+        /* Firma */
+        .legal-signature {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0 1.5rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .legal-signature p {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .signature-line {
+            font-family: monospace;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            color: #64748b;
+            margin: 1rem auto 0.5rem;
+            border-top: 1px dashed #cbd5e1;
+            display: inline-block;
+            padding-top: 1rem;
+            width: 250px;
+        }
+
+        /* Footer legal */
+        .legal-footer {
+            border-top: 1px solid #e2e8f0;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .legal-wrapper {
+                flex-direction: column;
+                padding: 2rem 1.5rem 3rem;
+                gap: 2rem;
+            }
+            
+            .legal-sidebar {
+                width: 100%;
+                position: static;
+            }
+            
+            .toc-grid {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+            
+            .toc-grid a {
+                background: #f1f5f9;
+                padding: 0.35rem 1rem;
+                border-radius: 30px;
+                font-size: 0.8rem;
+            }
+            
+            .toc-grid a:hover,
+            .toc-grid a.active {
+                background: var(--green);
+                color: white;
+                padding-left: 1rem;
+                border-left: none;
+            }
+            
+            .hero-meta {
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: center;
+            }
+            
+            .legal-footer {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .page-hero {
+                padding: 40px 20px 48px;
+            }
+            
+            .btn {
+                padding: 10px 20px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navbar placeholder -->
+    <div id="lf-nav-placeholder"></div>
+
+    <!-- PAGE HERO (estilo distribuidores) con el contenido de Términos -->
+    <div class="page-hero">
+        <div class="page-hero-glow"></div>
+        <div class="page-hero-inner">
+            <span class="s-eyebrow">Documento Legal</span>
+            <h1 class="s-title">Términos y Condiciones</h1>
+            <p class="s-sub">
+                Al usar nuestro sitio web o contratar nuestros servicios, aceptas los presentes términos. Léelos con atención.
+            </p>
+            <div class="hero-meta">
+                <span><i class="fas fa-calendar-alt"></i> Última actualización: enero 2026</span>
+                <span><i class="fas fa-clock"></i> Tiempo de lectura: ~6 min</span>
+            </div>
+                </div>
+    </div>
+
+    <!-- CONTENEDOR DE DOS COLUMNAS -->
+    <div class="legal-wrapper">
+        <!-- COLUMNA IZQUIERDA: CONTENIDO (sticky) -->
+        <aside class="legal-sidebar">
+            <div class="legal-toc-section">
+                <h2>CONTENIDO</h2>
+                <div class="toc-grid">
+                    <a href="#objeto">1. Objeto</a>
+                    <a href="#usuario">2. Usuario</a>
+                    <a href="#acceso">3. Acceso y navegación</a>
+                    <a href="#privacidad">4. Privacidad y datos</a>
+                    <a href="#enlaces">5. Política de enlaces</a>
+                    <a href="#propiedad">6. Propiedad intelectual</a>
+                    <a href="#legislacion">7. Legislación aplicable</a>
+                    <a href="#contacto">8. Contacto</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- COLUMNA DERECHA: Contenido legal -->
+        <main class="legal-content">
+            <!-- Tarjeta de la empresa -->
+            <div class="company-card">
+                <p>
+                    <strong>OPERACIONES Y MULTISERVICIOS IDEAS, SA. DE C.V. (GRUPO IDEAS)</strong>, con domicilio en Calle Leibintz #11, Colonia Azures, C.P. 11590, Alcaldía Miguel Hidalgo, Ciudad de México. El presente contrato regula el uso del contenido, productos y/o servicios de <strong>LIBERTYFIN</strong> disponibles en <a href="https://libertyfin.com.mx">libertyfin.com.mx</a>.
+                </p>
+            </div>
+
+            <!-- 1. OBJETO -->
+            <div id="objeto" class="legal-section">
+                <h3>1. Objeto</h3>
+                <p>El objeto es regular el acceso y utilización del contenido, productos y/o servicios a disposición del público en general en el dominio <a href="https://libertyfin.com.mx">https://libertyfin.com.mx</a>.</p>
+                <p>El titular se reserva el derecho de realizar cualquier tipo de modificación en el sitio web en cualquier momento y sin previo aviso; el usuario acepta dichas modificaciones.</p>
+                <p>El acceso al sitio web por parte del usuario es <strong>libre y gratuito por un plazo de quince días</strong>, pasado ese término de tiempo para la utilización del contenido, producto y/o servicio implicará un costo por el usuario.</p>
+                
+                <div class="legal-note-important">
+                    <p><i class="fas fa-exclamation-triangle"></i> <strong>Importante:</strong> El sitio web solo admite el acceso a personas mayores de edad y no se hace responsable por el incumplimiento de esto. El sitio está dirigido a usuarios residentes en México y cumple con la legislación establecida en dicho país.</p>
+                </div>
+                
+                <p>La administración del sitio web puede ejercerse por terceros, es decir, personas distintas al titular, sin afectar los presentes términos y condiciones.</p>
+            </div>
+
+            <!-- 2. USUARIO -->
+            <div id="usuario" class="legal-section">
+                <h3>2. Usuario</h3>
+                <p>La actividad del usuario en el sitio web como publicaciones o comentarios estarán sujetos a los presentes términos y condiciones. El usuario se compromete a utilizar el contenido, productos y/o servicios de forma lícita, sin faltar a la moral o al orden público, absteniéndose de realizar cualquier acto que afecte los derechos de terceros o el funcionamiento del sitio web.</p>
+                <p>El usuario se compromete a proporcionar <strong>información verídica</strong> en los formularios del sitio web.</p>
+                <p>El acceso al sitio web no supone una relación entre el usuario y el titular. <strong>LIBERTYFIN</strong> se deslinda de toda responsabilidad del mal uso que el usuario pudiera dar al sitio.</p>
+                
+                <div class="legal-note-warning">
+                    <p><i class="fas fa-ban"></i> <strong>Queda totalmente prohibido</strong> el uso del sitio y/o terminal punto de venta (TPV), para giros prohibidos excluyente y no limitativo como: venta de estupefacientes, armas de fuego, trata de personas, venta o reproducción de contenido de pornografía infantil o de cualquier tipo, apuestas y casinos entre otros. <strong>LIBERTYFIN</strong> queda exento de cualquier responsabilidad por el mal uso del sitio.</p>
+                </div>
+                
+                <p>El usuario manifiesta ser <strong>mayor de edad</strong> y contar con la capacidad jurídica para acatar los presentes términos y condiciones.</p>
+                
+                <p>Una vez contratados los contenidos, productos y/o servicios de LIBERTYFIN, el usuario deberá realizar su pago del servicio, este pago será <strong>mensual</strong> y empezará a correr a partir de la fecha de aceptación de los servicios de LIBERTYFIN.</p>
+                <p>LIBERTYFIN enviará un mensaje de aviso al usuario <strong>tres días de anticipación</strong> informando que su fecha de corte está por vencer.</p>
+                <p>El usuario dispondrá de <strong>tres días siguientes</strong> de su fecha de corte para realizar su pago. En caso de que el usuario no realice el pago, su servicio quedará suspendido.</p>
+                <p>Una vez que el usuario realice su pago, su servicio se reactivará.</p>
+                
+                <div class="legal-note-info">
+                    <p><i class="fas fa-database"></i> <strong>Resguardo de información:</strong> LIBERTYFIN tendrá bajo resguardo el perfil del usuario, así como toda su información, por un periodo de <strong>un año</strong>. Una vez pasado este tiempo, el perfil e información del usuario será eliminada.</p>
+                </div>
+            </div>
+
+            <!-- 3. ACCESO Y NAVEGACIÓN -->
+            <div id="acceso" class="legal-section">
+                <h3>3. Acceso y navegación</h3>
+                <p>El titular <strong>no garantiza</strong> la continuidad y disponibilidad del contenido, productos y/o servicios en el sitio web por causas ajenas o de fuerza mayor: sismos, huracanes, inundaciones, entre otros eventos de fuerza mayor.</p>
+                <p>El titular no se responsabiliza de que el software esté libre de errores que puedan causar daño al software y/o hardware del equipo del usuario, ni por los daños causados por el acceso y/o utilización del sitio web.</p>
+            </div>
+
+            <!-- 4. PRIVACIDAD Y DATOS -->
+            <div id="privacidad" class="legal-section">
+                <h3>4. Privacidad y datos</h3>
+                <p>Conforme a lo establecido en la <strong>Ley de Protección de Datos Personales en Posesión de Particulares</strong>, el titular se compromete a tomar las medidas necesarias que garanticen la seguridad del usuario, evitando el uso indebido de los datos personales proporcionados en el sitio web.</p>
+                <p>El titular verificará que los datos personales contenidos en las bases de datos sean correctos, verídicos y actuales, y que se utilicen únicamente con el fin para el que fueron recabados.</p>
+                <p>El uso de datos personales se limitará a lo previsto en el Aviso de Privacidad disponible en <a href="https://www.libertyfin.com.mx/aviso-privacidad">www.libertyfin.com.mx/aviso-privacidad</a>.</p>
+                <p><strong>LIBERTYFIN</strong> se reserva el derecho de modificar el Aviso de Privacidad en cualquier momento y sin previo aviso; el usuario acepta dichas modificaciones.</p>
+                <p>El sitio web utiliza <strong>cookies</strong>: pequeñas cantidades de información almacenadas en el navegador del usuario (datos de ingreso, preferencias, fecha y hora de acceso, sitios visitados y dirección IP). Esta información es anónima y se utilizará únicamente para mejorar el sitio web. El usuario puede desactivar las cookies en cualquier momento desde su navegador.</p>
+            </div>
+
+            <!-- 5. POLÍTICA DE ENLACES -->
+            <div id="enlaces" class="legal-section">
+                <h3>5. Política de enlaces</h3>
+                <p>El sitio web puede contener enlaces a otros sitios de internet pertenecientes a terceros, de los cuales <strong>LIBERTYFIN</strong> no se hace responsable.</p>
+            </div>
+
+            <!-- 6. PROPIEDAD INTELECTUAL -->
+            <div id="propiedad" class="legal-section">
+                <h3>6. Propiedad intelectual</h3>
+                <p>El titular manifiesta tener los derechos de propiedad intelectual e industrial del sitio web, incluyendo: imágenes, archivos de audio o video, logotipos, marcas, colores, estructuras, tipografías, diseños y demás elementos que lo distinguen, protegidos por la legislación mexicana e internacional en materia de propiedad intelectual e industrial.</p>
+                <p>El usuario se compromete a respetar los derechos de propiedad industrial e intelectual del titular, pudiendo visualizar los elementos del sitio web, almacenarlos, copiarlos e imprimirlos <strong>exclusivamente para uso personal</strong>.</p>
+            </div>
+
+            <!-- 7. LEGISLACIÓN APLICABLE -->
+            <div id="legislacion" class="legal-section">
+                <h3>7. Legislación aplicable</h3>
+                <p>La relación entre el usuario y el titular se regirá por las legislaciones aplicables en <strong>México</strong>.</p>
+		<p>Por medio del acceso y uso del sitio web, el usuario manifiesta su conformidad con los presentes Términos y Condiciones.</p>
+                
+            </div>
+
+            <!-- 8. CONTACTO -->
+            <div id="contacto" class="legal-section">
+                <h3>8. Contacto</h3>
+                <p>Para cualquier duda, aclaración o reclamación relacionada con estos Términos, contáctanos:</p>
+                <p>
+                    <strong>Libertyfin — Área Legal</strong><br>
+                    <i class="fas fa-envelope me-2"></i> legal@libertyfin.com.mx<br>
+                    <i class="fas fa-phone me-2"></i> +52 55 11062957<br>
+                    <i class="fas fa-clock me-2"></i> Respuesta en un plazo máximo de 5 días hábiles.
+                </p>
+            </div>
+
+            <!-- Footer legal -->
+            <div class="legal-footer">
+                <span><i class="fas fa-file-contract"></i> Documento vigente a partir de enero 2026</span>
+                <span><i class="fas fa-balance-scale"></i> Conforme a la legislación mexicana</span>
+                <span><i class="fas fa-building"></i> OPERACIONES Y MULTISERVICIOS IDEAS, S.A. DE C.V.</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer placeholder -->
+    <div id="lf-footer-placeholder"></div>
+
+    <!-- Shared JS -->
+    <script src="../js/shared.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tocLinks = document.querySelectorAll('.toc-grid a');
+            const sections = document.querySelectorAll('.legal-section');
+            
+            function updateActiveLink() {
+                let current = '';
+                const scrollPosition = window.scrollY + 120;
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionBottom = sectionTop + section.offsetHeight;
+                    
+                    if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    const href = link.getAttribute('href').substring(1);
+                    if (href === current) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+            
+            tocLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if (targetElement) {
+                        const offset = 100;
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - offset;
+                        
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+            
+            window.addEventListener('scroll', updateActiveLink);
+            updateActiveLink();
+        });
+    </script>
+</body>
+
+</html>

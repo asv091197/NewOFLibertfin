@@ -1,0 +1,11 @@
+# Aquí solo viven imágenes subidas por los usuarios.
+# Nada de esta carpeta debe EJECUTARSE nunca: si alguien logra subir un
+# .php disfrazado, esto lo vuelve un archivo inerte.
+php_flag engine off
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phar|cgi|pl|py|sh|htaccess)$">
+    Require all denied
+</FilesMatch>
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Content-Disposition "inline"
+</IfModule>

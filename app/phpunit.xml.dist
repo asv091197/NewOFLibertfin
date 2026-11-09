@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Dos grupos de pruebas:
+
+    unidad       no tocan la base. Corren en cualquier equipo con PHP.
+    integracion  arman una base MySQL desechable con config/esquema.sql y
+                 las migraciones, y prueban contra ella (cobros, API).
+                 Necesitan las variables LF_PRUEBAS_BD_* (ver tests/README.md);
+                 sin ellas se marcan como omitidas, no como fallidas.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="unidad">
+            <directory>tests/Unidad</directory>
+        </testsuite>
+        <testsuite name="integracion">
+            <directory>tests/Integracion</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+        <exclude>
+            <directory>src/Vista/plantillas</directory>
+        </exclude>
+    </source>
+</phpunit>

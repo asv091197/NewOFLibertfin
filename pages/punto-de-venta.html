@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Punto de Venta — Libertyfin</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+body{padding-top:64px}
+.feat-hero{padding:80px 24px 64px;background:linear-gradient(135deg,var(--green-light) 0%,white 60%);border-bottom:1px solid var(--border)}
+.feat-hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.feat-hero-img{background:white;border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:var(--shadow-lg);text-align:center;font-size:120px;min-height:300px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.feat-hero-img::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(34,197,94,0.08),transparent 70%)}
+.feat-hero-tag{display:inline-block;background:var(--green);color:white;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;margin-bottom:16px}
+.feat-hero-title{font-family:'Nunito',sans-serif;font-size:clamp(32px,4.5vw,52px);font-weight:900;letter-spacing:-2px;line-height:1.05;color:var(--ink);margin-bottom:18px}
+.feat-hero-title em{font-style:normal;color:var(--green)}
+.feat-hero-desc{font-size:16px;color:var(--ink3);line-height:1.7;margin-bottom:28px}
+.feat-hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+
+.feat-bullets-section{padding:80px 24px;background:white}
+.feat-bullets-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;margin-top:52px}
+.feat-list{display:flex;flex-direction:column;gap:18px}
+.feat-item{display:flex;align-items:flex-start;gap:14px;padding:18px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);transition:all 0.2s}
+.feat-item:hover{border-color:var(--green);background:var(--green-light);transform:translateX(4px)}
+.feat-item-icon{width:40px;height:40px;border-radius:10px;background:white;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.feat-item-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.feat-item-desc{font-size:13px;color:var(--ink3);line-height:1.55}
+.feat-aside{background:var(--ink);border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:16px}
+.feat-aside-title{font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:white;margin-bottom:4px}
+.feat-aside-desc{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;line-height:1.6}
+.feat-aside-stat{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08)}
+.feat-aside-stat:last-child{border:none}
+.fas-label{font-size:13px;color:rgba(255,255,255,0.5)}
+.fas-val{font-family:'Nunito',sans-serif;font-size:20px;font-weight:800;color:var(--green)}
+
+.other-modules{padding:72px 24px;background:var(--bg);text-align:center}
+.other-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:40px}
+.other-card{background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;text-decoration:none;color:inherit;transition:all 0.2s;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+.other-card:hover{border-color:var(--green);transform:translateY(-3px);box-shadow:0 8px 24px rgba(34,197,94,0.12)}
+.other-icon{font-size:32px}
+.other-name{font-size:13.5px;font-weight:700;color:var(--ink)}
+.other-desc{font-size:12px;color:var(--ink3)}
+
+@media(max-width:900px){.feat-hero-inner,.feat-bullets-grid{grid-template-columns:1fr}.other-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.other-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="lf-nav-placeholder"></div>
+
+<section class="feat-hero">
+  <div class="feat-hero-inner">
+    <div>
+      <span class="feat-hero-tag">Punto de Venta</span>
+      <h1 class="feat-hero-title">Cobra más rápido,<br><em>sin complicaciones.</em></h1>
+      <p class="feat-hero-desc">Libertyfin POS funciona en cualquier tablet, celular o PC. Sin hardware especial. Empieza a cobrar en minutos desde cualquier lugar.</p>
+      <div class="feat-hero-btns">
+        <a class="btn btn-green" href="registro.php">Pruébalo gratis</a>
+        <a class="btn btn-ghost" href="#">Ver demo</a>
+      </div>
+    </div>
+    <div class="feat-hero-img">🛒</div>
+  </div>
+</section>
+
+<section class="feat-bullets-section">
+  <div class="lf-section-inner">
+    <div class="reveal">
+      <span class="s-eyebrow">Funcionalidades</span>
+      <h2 class="s-title">Todo lo que necesitas<br>para <em>cobrar sin fricción.</em></h2>
+    </div>
+    <div class="feat-bullets-grid">
+      <div class="feat-list reveal">
+        <div class="feat-item">
+          <div class="feat-item-icon">💳</div>
+          <div><div class="feat-item-title">Todos los métodos de pago</div><div class="feat-item-desc">Efectivo, tarjeta (débito/crédito), transferencia SPEI, QR y vales de despensa.</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-item-icon">🖨️</div>
+          <div><div class="feat-item-title">Tickets y facturas al instante</div><div class="feat-item-desc">Imprime o envía tickets por correo y WhatsApp. Genera CFDI directamente desde la venta.</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-item-icon">📵</div>
+          <div><div class="feat-item-title">Modo offline</div><div class="feat-item-desc">Sigue vendiendo sin internet. Las ventas se sincronizan automáticamente al reconectarse.</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-item-icon">🏷️</div>
+          <div><div class="feat-item-title">Descuentos y promociones</div><div class="feat-item-desc">Aplica descuentos por producto, porcentaje, monto fijo o código de promoción al vuelo.</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-item-icon">🔄</div>
+          <div><div class="feat-item-title">Devoluciones y cambios</div><div class="feat-item-desc">Gestiona devoluciones parciales o totales con reintegro automático al inventario.</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-item-icon">📊</div>
+          <div><div class="feat-item-title">Múltiples cajas</div><div class="feat-item-desc">Opera varias cajas simultáneamente en la misma sucursal con cortes independientes por turno.</div></div>
+        </div>
+      </div>
+      <div class="feat-aside reveal reveal-d2">
+        <div>
+          <div class="feat-aside-title">¿Por qué Libertyfin POS?</div>
+          <p class="feat-aside-desc">Diseñado para el comercio mexicano. Rápido, confiable y siempre actualizado.</p>
+        </div>
+        <div class="feat-aside-stat"><span class="fas-label">Tiempo de configuración</span><span class="fas-val">< 10 min</span></div>
+        <div class="feat-aside-stat"><span class="fas-label">Tiempo de cobro promedio</span><span class="fas-val">< 30 seg</span></div>
+        <div class="feat-aside-stat"><span class="fas-label">Disponibilidad del sistema</span><span class="fas-val">99.9%</span></div>
+        <div class="feat-aside-stat"><span class="fas-label">Métodos de pago</span><span class="fas-val">6+</span></div>
+        <div class="feat-aside-stat"><span class="fas-label">Dispositivos compatibles</span><span class="fas-val">Todos</span></div>
+        <a class="btn btn-green" href="registro" style="margin-top:8px;justify-content:center">Empezar gratis →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="other-modules">
+  <div class="lf-section-inner">
+    <div class="reveal">
+      <span class="s-eyebrow">Más módulos</span>
+      <h2 class="s-title">Explora toda la plataforma</h2>
+    </div>
+    <div class="other-grid reveal" style="margin-top:40px">
+      <a class="other-card" href="facturacion"><div class="other-icon">📄</div><div class="other-name">Facturación CFDI</div><div class="other-desc">Timbra al SAT en segundos</div></a>
+      <a class="other-card" href="inventario"><div class="other-icon">📦</div><div class="other-name">Inventario</div><div class="other-desc">Stock en tiempo real</div></a>
+      <a class="other-card" href="clientes"><div class="other-icon">👥</div><div class="other-name">CRM Clientes</div><div class="other-desc">Historial y seguimiento</div></a>
+      <a class="other-card" href="reportes"><div class="other-icon">📊</div><div class="other-name">Reportes</div><div class="other-desc">Dashboards inteligentes</div></a>
+    </div>
+  </div>
+</section>
+
+<div id="lf-footer-placeholder"></div>
+<script src="../js/shared.js"></script>
+</body>
+</html>

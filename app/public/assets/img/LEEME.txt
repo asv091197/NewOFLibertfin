@@ -1,0 +1,23 @@
+EL LOGOTIPO DE LA PANTALLA DE ENTRAR
+
+Pon aquí tu archivo con este nombre exacto:
+
+    logo-blanco.png
+
+Y aparece solo, centrado sobre el verde. Mientras no exista, la pantalla
+dibuja el texto "Libertyfin": una imagen rota en la pantalla de entrar es
+peor que no tener imagen, porque es lo primero que ve alguien que todavía
+no confía en el sistema.
+
+PARA QUE SE VEA BIEN
+
+  · Fondo transparente, no blanco. Sobre el verde, un fondo blanco deja
+    un rectángulo alrededor del logo.
+  · Trazo en blanco puro.
+  · Al menos 600 px de ancho. Se muestra a 260, pero en pantallas de
+    alta densidad se ve al doble.
+  · Sin márgenes de más dentro del PNG: el espacio de arriba y abajo lo
+    pone el CSS, y si el archivo trae el suyo queda descentrado.
+
+El sistema le agrega la fecha del archivo a la dirección, así que al
+reemplazarlo se ve el nuevo de inmediato, sin vaciar la caché.

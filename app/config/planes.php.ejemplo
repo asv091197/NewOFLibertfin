@@ -1,0 +1,50 @@
+<?php
+/**
+ * Planes que se pueden contratar desde Mi cuenta → Plan.
+ *
+ * Copia este archivo como `planes.php` y pon tus planes y precios reales.
+ * Mientras no exista `planes.php`, la pestaña Plan muestra el plan actual
+ * y pide escribir a LibertyFin.
+ *
+ * Los valores de abajo son SOLO UN EJEMPLO.
+ *
+ *   clave      minúsculas, números, - y _ (se guarda en empresas.plan)
+ *   nombre     como lo ve el cliente
+ *   precio     por MES, en pesos (mayor a 0). El anual se calcula solo.
+ *   usuarios   cuántos usuarios incluye (informativo)
+ *   popular    true marca la tarjeta como "Más popular"
+ *   grupos     características agrupadas: 'Título' => ['renglón', ...]
+ *   modulos    los módulos que incluye (ver ServicioModulos). Sin esta llave,
+ *              el plan incluye todos. La prueba gratis siempre los incluye todos.
+ *              Inventario y Comisiones van en todos los planes.
+ *
+ * `descuento_anual`: % que se descuenta al pagar los 12 meses juntos.
+ * `cuenta`: a dónde se transfiere.
+ */
+return [
+    'descuento_anual' => 20,
+
+    'planes' => [
+        'basico' => [
+            'nombre'   => 'Básico',
+            'precio'   => 0.00,          // ← precio real por mes
+            'usuarios' => 1,
+            'grupos'   => ['Punto de venta' => ['1 caja registradora', '100 productos']],
+            'modulos'  => ['cotizaciones', 'expediente'],
+        ],
+        'premium' => [
+            'nombre'   => 'Premium',
+            'precio'   => 0.00,          // ← precio real por mes
+            'usuarios' => 5,
+            'popular'  => true,
+            'grupos'   => ['Punto de venta' => ['3 cajas registradoras'], 'Pagos' => ['SPEI']],
+            'modulos'  => ['cotizaciones', 'expediente', 'igualas', 'seguimiento', 'agenda', 'paquetes', 'compras'],
+        ],
+    ],
+
+    'cuenta' => [
+        'banco'   => '',
+        'titular' => '',
+        'clabe'   => '',
+    ],
+];

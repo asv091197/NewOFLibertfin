@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Clientes — Libertyfin</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+body{padding-top:64px}
+.feat-hero{padding:80px 24px 64px;background:linear-gradient(135deg,#f5f3ff 0%,white 60%);border-bottom:1px solid var(--border)}
+.feat-hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.feat-hero-tag{display:inline-block;background:#7c3aed;color:white;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;margin-bottom:16px}
+.feat-hero-title{font-family:'Nunito',sans-serif;font-size:clamp(32px,4.5vw,52px);font-weight:900;letter-spacing:-2px;line-height:1.05;color:var(--ink);margin-bottom:18px}
+.feat-hero-title em{font-style:normal;color:var(--green)}
+.feat-hero-desc{font-size:16px;color:var(--ink3);line-height:1.7;margin-bottom:28px}
+.feat-hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+
+/* CRM card mock */
+.crm-mock{background:white;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.1)}
+.crm-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.crm-title{font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;color:var(--ink)}
+.crm-count{background:var(--green);color:white;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700}
+.crm-client{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f9fafb;transition:background 0.15s}
+.crm-client:last-child{border:none}
+.crm-client:hover{background:var(--bg)}
+.crm-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0}
+.crm-info{flex:1}
+.crm-name{font-size:12px;font-weight:700;color:var(--ink)}
+.crm-detail{font-size:10px;color:var(--ink3)}
+.crm-total{text-align:right}
+.crm-total-val{font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;color:var(--ink)}
+.crm-total-label{font-size:10px;color:var(--ink3)}
+.crm-tag{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700}
+.tag-vip{background:#fef9c3;color:#92400e}
+.tag-new{background:#dcfce7;color:#166534}
+.tag-reg{background:#eff6ff;color:#1d4ed8}
+
+.feat-section{padding:80px 24px;background:white}
+.feat-section.gray{background:var(--bg)}
+.feat-inner{max-width:1100px;margin:0 auto}
+.feat-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px}
+.feat-card{background:white;border:1px solid var(--border);border-radius:16px;padding:24px;transition:all 0.25s}
+.feat-card.gray-bg{background:var(--bg)}
+.feat-card:hover{border-color:var(--green);transform:translateY(-3px);box-shadow:0 8px 32px rgba(34,197,94,0.1)}
+.feat-card-icon{font-size:28px;margin-bottom:12px}
+.feat-card-title{font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--ink);margin-bottom:8px}
+.feat-card-desc{font-size:13.5px;color:var(--ink3);line-height:1.65}
+
+.feat-2col{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;margin-top:52px}
+.feat-list{display:flex;flex-direction:column;gap:16px}
+.feat-item{display:flex;align-items:flex-start;gap:14px;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:12px;transition:all 0.2s}
+.feat-item:hover{border-color:var(--green);background:var(--green-light);transform:translateX(4px)}
+.feat-item-icon{width:38px;height:38px;border-radius:9px;background:white;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.feat-item-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.feat-item-desc{font-size:13px;color:var(--ink3);line-height:1.55}
+.aside-dark{background:var(--ink);border-radius:20px;padding:28px}
+.aside-dark-title{font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:white;margin-bottom:8px}
+.aside-dark-desc{font-size:13.5px;color:rgba(255,255,255,0.5);margin-bottom:20px;line-height:1.6}
+.aside-stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.07)}
+.aside-stat-row:last-child{border:none}
+.aside-stat-label{font-size:12px;color:rgba(255,255,255,0.45)}
+.aside-stat-val{font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--green)}
+
+.other-modules{padding:72px 24px;background:var(--bg);text-align:center}
+.other-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:36px;max-width:900px;margin-left:auto;margin-right:auto}
+.other-card{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 12px;text-decoration:none;color:inherit;transition:all 0.2s;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+.other-card:hover{border-color:var(--green);transform:translateY(-3px)}
+.other-icon{font-size:28px}
+.other-name{font-size:12.5px;font-weight:700;color:var(--ink)}
+
+@media(max-width:900px){.feat-hero-inner,.feat-2col{grid-template-columns:1fr}.feat-grid-3{grid-template-columns:1fr 1fr}.other-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.feat-grid-3{grid-template-columns:1fr}.other-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="lf-nav-placeholder"></div>
+
+<section class="feat-hero">
+  <div class="feat-hero-inner">
+    <div>
+      <span class="feat-hero-tag">CRM Clientes</span>
+      <h1 class="feat-hero-title">Conoce mejor<br>a tus clientes,<br><em>vende más.</em></h1>
+      <p class="feat-hero-desc">Historial completo de compras, seguimiento de crédito, notas personalizadas y comunicación directa. Todo en un solo perfil.</p>
+      <div class="feat-hero-btns">
+        <a class="btn btn-green" href="registro.php">Pruébalo gratis</a>
+        <a class="btn btn-ghost" href="#">Ver demo</a>
+      </div>
+    </div>
+    <div style="font-size:1px">
+      <div class="crm-mock">
+        <div class="crm-head"><span class="crm-title">Clientes — Vista general</span><span class="crm-count">587 clientes</span></div>
+        <div class="crm-client">
+          <div class="crm-av" style="background:linear-gradient(135deg,#2563eb,#7c3aed)">EM</div>
+          <div class="crm-info"><div class="crm-name">Empresa ABC S.A. de C.V.</div><div class="crm-detail">RFC: EAB920301AB1 · 48 compras</div></div>
+          <span class="crm-tag tag-vip">⭐ VIP</span>
+          <div class="crm-total"><div class="crm-total-val">$84,200</div><div class="crm-total-label">Total comprado</div></div>
+        </div>
+        <div class="crm-client">
+          <div class="crm-av" style="background:linear-gradient(135deg,#059669,#0d9488)">JP</div>
+          <div class="crm-info"><div class="crm-name">Juan Pérez García</div><div class="crm-detail">XAXX010101000 · 12 compras</div></div>
+          <span class="crm-tag tag-reg">Regular</span>
+          <div class="crm-total"><div class="crm-total-val">$14,500</div><div class="crm-total-label">Total comprado</div></div>
+        </div>
+        <div class="crm-client">
+          <div class="crm-av" style="background:linear-gradient(135deg,#d97706,#dc2626)">TS</div>
+          <div class="crm-info"><div class="crm-name">Tech Solutions MX</div><div class="crm-detail">TSM010101000 · 2 compras</div></div>
+          <span class="crm-tag tag-new">Nuevo</span>
+          <div class="crm-total"><div class="crm-total-val">$3,800</div><div class="crm-total-label">Total comprado</div></div>
+        </div>
+        <div class="crm-client">
+          <div class="crm-av" style="background:linear-gradient(135deg,#0891b2,#0e7490)">MR</div>
+          <div class="crm-info"><div class="crm-name">María Rodríguez</div><div class="crm-detail">ROXM850312F45 · 31 compras</div></div>
+          <span class="crm-tag tag-vip">⭐ VIP</span>
+          <div class="crm-total"><div class="crm-total-val">$52,100</div><div class="crm-total-label">Total comprado</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feat-section">
+  <div class="feat-inner">
+    <div class="reveal">
+      <span class="s-eyebrow">Funcionalidades</span>
+      <h2 class="s-title">Un CRM diseñado<br><em>para el comercio mexicano.</em></h2>
+    </div>
+    <div class="feat-2col">
+      <div class="feat-list reveal">
+        <div class="feat-item"><div class="feat-item-icon">👤</div><div><div class="feat-item-title">Perfil completo del cliente</div><div class="feat-item-desc">Datos fiscales, dirección, historial de compras, notas y documentos adjuntos en un solo lugar.</div></div></div>
+        <div class="feat-item"><div class="feat-item-icon">💳</div><div><div class="feat-item-title">Seguimiento de crédito</div><div class="feat-item-desc">Define límites de crédito por cliente, lleva el saldo pendiente y genera estados de cuenta automáticos.</div></div></div>
+        <div class="feat-item"><div class="feat-item-icon">📊</div><div><div class="feat-item-title">Historial de compras</div><div class="feat-item-desc">Ve todas las ventas, facturas y cotizaciones de cada cliente. Identifica patrones y oportunidades de venta.</div></div></div>
+        <div class="feat-item"><div class="feat-item-icon">📱</div><div><div class="feat-item-title">Comunicación directa</div><div class="feat-item-desc">Envía cotizaciones, facturas y mensajes por WhatsApp o correo directamente desde el perfil del cliente.</div></div></div>
+        <div class="feat-item"><div class="feat-item-icon">⭐</div><div><div class="feat-item-title">Segmentación de clientes</div><div class="feat-item-desc">Clasifica clientes por VIP, frecuente, nuevo o inactivo. Crea listas y aplica precios o descuentos especiales.</div></div></div>
+      </div>
+      <div class="aside-dark reveal reveal-d2">
+        <div class="aside-dark-title">Conoce tu cartera de clientes</div>
+        <p class="aside-dark-desc">Toda la información de tus clientes centralizada. Nunca pierdas el hilo de ninguna relación comercial.</p>
+        <div class="aside-stat-row"><span class="aside-stat-label">Clientes activos promedio</span><span class="aside-stat-val">+587</span></div>
+        <div class="aside-stat-row"><span class="aside-stat-label">Ticket promedio</span><span class="aside-stat-val">$1,535</span></div>
+        <div class="aside-stat-row"><span class="aside-stat-label">Datos por cliente</span><span class="aside-stat-val">Ilimitados</span></div>
+        <div class="aside-stat-row"><span class="aside-stat-label">Exportación</span><span class="aside-stat-val">Excel / CSV</span></div>
+        <a class="btn btn-green" href="registro.php" style="margin-top:20px;justify-content:center">Empezar gratis →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feat-section gray">
+  <div class="feat-inner">
+    <div class="reveal text-center">
+      <span class="s-eyebrow">Más funcionalidades</span>
+      <h2 class="s-title">Fideliza a tus clientes<br><em>con herramientas reales.</em></h2>
+    </div>
+    <div class="feat-grid-3">
+      <div class="feat-card gray-bg reveal reveal-d1"><div class="feat-card-icon">📝</div><div class="feat-card-title">Notas y seguimiento</div><p class="feat-card-desc">Agrega notas internas, recordatorios y tareas de seguimiento por cliente. No pierdas ningún detalle importante.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d2"><div class="feat-card-icon">📨</div><div class="feat-card-title">Envío de estados de cuenta</div><p class="feat-card-desc">Genera y envía estados de cuenta con saldos pendientes automáticamente al correo del cliente.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d3"><div class="feat-card-icon">🎯</div><div class="feat-card-title">Precios por cliente</div><p class="feat-card-desc">Define listas de precios especiales para clientes VIP, mayoristas o distribuidores. Aplican automáticamente en ventas.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d1"><div class="feat-card-icon">📍</div><div class="feat-card-title">Múltiples direcciones</div><p class="feat-card-desc">Guarda varias direcciones de entrega por cliente. Útil para negocios con múltiples sucursales o puntos de entrega.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d2"><div class="feat-card-icon">🔍</div><div class="feat-card-title">Búsqueda avanzada</div><p class="feat-card-desc">Busca clientes por nombre, RFC, teléfono o correo. Filtra por estado de cuenta, último pedido o segmento.</p></div>
+      <div class="feat-card gray-bg reveal reveal-d3"><div class="feat-card-icon">📂</div><div class="feat-card-title">Importación de contactos</div><p class="feat-card-desc">Importa tu base de clientes desde Excel, CSV o tu sistema anterior. Migración rápida y sin pérdida de datos.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="other-modules">
+  <div class="lf-section-inner">
+    <div class="reveal"><span class="s-eyebrow">Más módulos</span><h2 class="s-title">Explora toda la plataforma</h2></div>
+    <div class="other-grid reveal">
+      <a class="other-card" href="punto-de-venta"><div class="other-icon">🛒</div><div class="other-name">Punto de Venta</div></a>
+      <a class="other-card" href="facturacion"><div class="other-icon">📄</div><div class="other-name">Facturación CFDI</div></a>
+      <a class="other-card" href="inventario"><div class="other-icon">📦</div><div class="other-name">Inventario</div></a>
+      <a class="other-card" href="cotizaciones"><div class="other-icon">📋</div><div class="other-name">Cotizaciones</div></a>
+      <a class="other-card" href="reportes"><div class="other-icon">📊</div><div class="other-name">Reportes</div></a>
+    </div>
+  </div>
+</section>
+
+<div id="lf-footer-placeholder"></div>
+<script src="../js/shared.js"></script>
+</body>
+</html>
