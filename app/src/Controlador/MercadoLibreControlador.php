@@ -161,9 +161,11 @@ final class MercadoLibreControlador
                 'error', 'ajustes');
         }
 
+        $paso = 'leer la cuenta guardada';
         try {
             $srv = new MeliInventario($db, $api);
             $antes = $srv->cuenta();
+            $paso = 'guardar la cuenta en la base de la empresa';
             $srv->repo()->guardarConexion([
                 'meli_user_id'  => $userId,
                 'nickname'      => (string)($yo['nickname'] ?? ''),
@@ -173,15 +175,21 @@ final class MercadoLibreControlador
                 'expira_en'     => $llaves['expira_en'],
                 'conectado_por' => $_SESSION['usuario_nombre'] ?? '',
             ]);
+            $paso = 'registrar la cuenta en la base principal (lf_ruta_meli)';
             $rutas->apuntar($userId, $_SESSION['empresa_db'], (string)($yo['nickname'] ?? ''));
             Auditoria::anota('meli.conectar', 'Mercado Libre',
                 $antes && $antes['meli_user_id'] ? ($antes['nickname'] ?: $antes['meli_user_id']) : null,
                 ($yo['nickname'] ?? '') . ' (' . $userId . ')');
         } catch (\Throwable $e) {
-            error_log('[LibertyFin] meli/retorno: ' . $e->getMessage());
+            error_log('[LibertyFin] meli/retorno (' . $paso . '): ' . $e->getMessage());
+            // Solo administradores llegan aquí, y el mensaje no lleva llaves
+            // (van cifradas y PDO no repite los valores): se enseña el motivo
+            // real para no tener que ir a buscar el log del servidor.
             $this->volver(self::faltaTabla($e)
-                ? 'Falta actualizar la base (versión 30). Sal del sistema y vuelve a entrar, o aplica config/actualizar-v30.sql.'
-                : 'No se pudo guardar la conexión.', 'error', 'ajustes');
+                ? 'Falta actualizar la base (versión 30). Sal del sistema y vuelve a entrar, o aplica config/actualizar-v30.sql. '
+                  . 'Detalle al ' . $paso . ': ' . mb_substr($e->getMessage(), 0, 300)
+                : 'No se pudo guardar la conexión al ' . $paso . ': ' . mb_substr($e->getMessage(), 0, 300),
+                'error', 'ajustes');
         }
 
         // Lo primero que alguien quiere ver al conectar son sus publicaciones.

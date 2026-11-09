@@ -97,7 +97,16 @@ foreach ($cuentas as $f) {
     echo "\n  " . c($base, 'g') . ' · ' . ($f['nickname'] ?: $f['meli_user_id']) . "\n";
     try {
         $db = Conexion::de($base);
-        if (!Migraciones::alDia($db)) Migraciones::aplicar($db);
+        if (!Migraciones::alDia($db)) {
+            $antes = Migraciones::versionDe($db);
+            $hecho = Migraciones::aplicar($db);
+            if ($hecho) bien('base puesta al día: versión ' . $antes . ' → ' . max($hecho));
+            if ($f = Migraciones::fallo()) {
+                mal('la migración ' . $f['version'] . ' falló: ' . $f['mensaje']);
+                $fallos++;
+                continue;
+            }
+        }
 
         $api = new MercadoLibre();
         if ($crudo) $api->espiar(function ($q, $t) { nota($q . ' ' . $t); });
