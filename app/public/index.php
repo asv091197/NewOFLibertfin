@@ -275,6 +275,21 @@ $r->post('/envios/origenes',             ['LibertyFin\Controlador\EnviosControla
 $r->get('/envios/{id}',                  ['LibertyFin\Controlador\EnviosControlador', 'ver']);
 $r->post('/envios/{id}/rastrear',        ['LibertyFin\Controlador\EnviosControlador', 'rastrear']);
 $r->post('/envios/{id}/cancelar',        ['LibertyFin\Controlador\EnviosControlador', 'cancelar']);
+// ── Mercado Libre ──
+// El aviso lo llama un servidor de Mercado Libre, sin sesión: no trae
+// datos, solo QUÉ cambió, y se le vuelve a preguntar con la llave de la
+// cuenta (ver AvisosMeliControlador).
+$r->post('/mercadolibre/aviso',          ['LibertyFin\Controlador\AvisosMeliControlador', 'recibir']);
+$r->get('/mercadolibre',                 ['LibertyFin\Controlador\MercadoLibreControlador', 'index']);
+$r->post('/mercadolibre/conectar',       ['LibertyFin\Controlador\MercadoLibreControlador', 'conectar']);
+// A donde regresa Mercado Libre al autorizar. Tiene que ser EXACTAMENTE la
+// dirección dada de alta en la aplicación (config/integraciones.php → retorno).
+$r->get('/mercadolibre/retorno',         ['LibertyFin\Controlador\MercadoLibreControlador', 'retorno']);
+$r->post('/mercadolibre/desconectar',    ['LibertyFin\Controlador\MercadoLibreControlador', 'desconectar']);
+$r->post('/mercadolibre/ajustes',        ['LibertyFin\Controlador\MercadoLibreControlador', 'ajustes']);
+$r->post('/mercadolibre/importar',       ['LibertyFin\Controlador\MercadoLibreControlador', 'importar']);
+$r->post('/mercadolibre/vincular',       ['LibertyFin\Controlador\MercadoLibreControlador', 'vincular']);
+$r->post('/mercadolibre/sincronizar',    ['LibertyFin\Controlador\MercadoLibreControlador', 'sincronizar']);
 $r->get('/igualas',                      ['LibertyFin\Controlador\IgualasControlador', 'index']);
 $r->post('/igualas/guardar',             ['LibertyFin\Controlador\IgualasControlador', 'guardar']);
 $r->post('/igualas/alternar',            ['LibertyFin\Controlador\IgualasControlador', 'alternar']);
@@ -499,6 +514,16 @@ $permisos = [
   '/envios/{id}'            => 'ver.envios',
   '/envios/{id}/rastrear'   => 'ver.envios',
   '/envios/{id}/cancelar'   => 'editar.envios',
+  '/mercadolibre'             => 'ver.mercadolibre',
+  // Conectar, desconectar y decidir de dónde sale lo que se vende allá
+  // compromete la cuenta de vendedor de la empresa: es de administrador.
+  '/mercadolibre/conectar'    => 'editar.ajustes',
+  '/mercadolibre/retorno'     => 'editar.ajustes',
+  '/mercadolibre/desconectar' => 'editar.ajustes',
+  '/mercadolibre/ajustes'     => 'editar.ajustes',
+  '/mercadolibre/importar'    => 'editar.mercadolibre',
+  '/mercadolibre/vincular'    => 'editar.mercadolibre',
+  '/mercadolibre/sincronizar' => 'editar.mercadolibre',
   '/igualas'                => 'ver.igualas',
   '/igualas/guardar'        => 'editar.igualas',
   '/igualas/alternar'       => 'editar.igualas',
@@ -624,6 +649,9 @@ $publicas = ['/login', '/login/confirmar', '/salir', '/registro', '/ayuda-acceso
     // Los avisos de la paquetería, por lo mismo: quien llama es un
     // servidor de Envia. Su puerta es la firma HMAC del cuerpo.
     '/envia/aviso',
+    // Los de Mercado Libre: un servidor suyo, sin sesión. No traen datos,
+    // solo qué cambió; se le vuelve a preguntar con la llave de la cuenta.
+    '/mercadolibre/aviso',
 ];
 $ruta     = '/' . trim((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 

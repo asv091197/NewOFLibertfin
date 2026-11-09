@@ -44,6 +44,9 @@ final class Modulos
         'envios'       => ['nombre' => 'Envíos a domicilio', 'grupo' => 'Comercio', 'icono' => 'camion', 'ruta' => '/envios',
                            'desc' => 'Cotizas con DHL, FedEx, Estafeta y las demás, imprimes la guía y rastreas el paquete, sin salir de la venta.',
                            'giros' => []],
+        'mercadolibre' => ['nombre' => 'Mercado Libre', 'grupo' => 'Comercio', 'icono' => 'bolsa', 'ruta' => '/mercadolibre',
+                           'desc' => 'Conecta tu cuenta de vendedor: lo que vendes allá se descuenta de tus existencias, y lo que vendes aquí se actualiza allá.',
+                           'giros' => [], 'requiere' => 'inventario'],
         'cotizaciones' => ['nombre' => 'Cotizaciones', 'grupo' => 'Servicios', 'icono' => 'doc', 'ruta' => '/cotizaciones',
                            'desc' => 'Presupuestos que imprimes o mandas, y que se vuelven venta con un clic.',
                            'giros' => ['profesional']],
@@ -82,7 +85,7 @@ final class Modulos
      * Cuando se decida en qué planes entra, se agrega a `modulos` en
      * `config/planes.php` y se quita de aquí.
      */
-    const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios'];
+    const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre'];
 
     private $cfg;
     private static $plan = null;   // [clave_plan => modulos|null] por petición

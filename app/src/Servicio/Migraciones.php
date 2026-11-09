@@ -30,7 +30,7 @@ use PDO;
 final class Migraciones
 {
     /** Súbelo al agregar una migración nueva. */
-    const VERSION = 29;
+    const VERSION = 30;
 
     /**
      * La versión vive en `lf_ajustes`, no en `sistema_config`.
@@ -1542,6 +1542,100 @@ final class Migraciones
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
+    /**
+     * 30 · Mercado Libre: la cuenta de vendedor de la empresa, sus
+     * publicaciones vinculadas a productos y las órdenes que ya movieron
+     * existencias.
+     *
+     * LAS LLAVES VAN AQUÍ, Y CIFRADAS
+     *
+     * La regla de la casa es que las credenciales no viven en la base. Las
+     * de la APLICACIÓN de Mercado Libre se respetan: van en
+     * config/integraciones.php. Pero las de la CUENTA son de cada empresa
+     * y las emite Mercado Libre al conectar; no hay archivo por empresa
+     * donde ponerlas. Así que van aquí, cifradas con una llave que sí vive
+     * en el archivo (ver MercadoLibre::cifrar).
+     *
+     * `meli_user_id` es VARCHAR y no BIGINT: es un id ajeno, y uno ajeno se
+     * guarda como texto para no depender de que siempre quepa en un número.
+     *
+     * `lf_meli_ordenes.aplicado` guarda LO QUE SE DESCONTÓ, no las líneas
+     * de la orden. Si se cancela, regresa justo eso, aunque mientras tanto
+     * alguien haya cambiado el vínculo de la publicación.
+     */
+    private static function v30(PDO $db)
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_meli_cuenta (
+                id                 TINYINT NOT NULL PRIMARY KEY,
+                meli_user_id       VARCHAR(20)  NULL DEFAULT NULL,
+                nickname           VARCHAR(100) NULL DEFAULT NULL,
+                site_id            VARCHAR(5)   NULL DEFAULT NULL,
+                access_token       TEXT NULL,
+                refresh_token      TEXT NULL,
+                expira_en          DATETIME NULL DEFAULT NULL,
+                estado             VARCHAR(20) NOT NULL DEFAULT 'desconectada',
+                sucursal_id        INT NULL DEFAULT NULL,
+                reserva            DECIMAL(12,3) NOT NULL DEFAULT 0,
+                enviar_existencias TINYINT(1) NOT NULL DEFAULT 0,
+                descontar_ventas   TINYINT(1) NOT NULL DEFAULT 1,
+                conectado_por      VARCHAR(100) NULL DEFAULT NULL,
+                conectado_en       DATETIME NULL DEFAULT NULL,
+                actualizado_en     DATETIME NULL DEFAULT NULL,
+                sincronizado_en    DATETIME NULL DEFAULT NULL,
+                ordenes_desde      DATETIME NULL DEFAULT NULL,
+                ultimo_error       VARCHAR(255) NULL DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_meli_publicaciones (
+                id             INT AUTO_INCREMENT PRIMARY KEY,
+                item_id        VARCHAR(20) NOT NULL,
+                variacion_id   BIGINT NOT NULL DEFAULT 0,
+                titulo         VARCHAR(255) NULL DEFAULT NULL,
+                variacion      VARCHAR(160) NULL DEFAULT NULL,
+                sku            VARCHAR(100) NULL DEFAULT NULL,
+                estado_ml      VARCHAR(20)  NULL DEFAULT NULL,
+                logistica      VARCHAR(30)  NULL DEFAULT NULL,
+                permalink      VARCHAR(255) NULL DEFAULT NULL,
+                imagen         VARCHAR(255) NULL DEFAULT NULL,
+                precio         DECIMAL(12,2) NOT NULL DEFAULT 0,
+                stock_ml       INT NOT NULL DEFAULT 0,
+                producto_id    INT NULL DEFAULT NULL,
+                vinculo        VARCHAR(10) NULL DEFAULT NULL,
+                pendiente      TINYINT(1) NOT NULL DEFAULT 0,
+                enviado_stock  INT NULL DEFAULT NULL,
+                enviado_en     DATETIME NULL DEFAULT NULL,
+                error          VARCHAR(255) NULL DEFAULT NULL,
+                actualizado_en DATETIME NULL DEFAULT NULL,
+                UNIQUE KEY ux_mp_item (item_id, variacion_id),
+                KEY ix_mp_producto (producto_id),
+                KEY ix_mp_pendiente (pendiente, item_id),
+                KEY ix_mp_sku (sku)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_meli_ordenes (
+                orden_id       VARCHAR(24) NOT NULL PRIMARY KEY,
+                estado         VARCHAR(20) NOT NULL DEFAULT 'nueva',
+                estado_ml      VARCHAR(30) NULL DEFAULT NULL,
+                comprador      VARCHAR(120) NULL DEFAULT NULL,
+                total          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                fecha_ml       DATETIME NULL DEFAULT NULL,
+                aplicado       TEXT NULL,
+                nota           VARCHAR(255) NULL DEFAULT NULL,
+                creado_en      DATETIME NOT NULL,
+                actualizado_en DATETIME NULL DEFAULT NULL,
+                KEY ix_mo_fecha (fecha_ml)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // `tipo` medía 12 y «mercadolibre» mide justo 12. Se agranda para
+        // que el siguiente tipo que llegue no se corte en silencio.
+        if (self::hayTabla($db, 'lf_inventario_movimientos')) {
+            $db->exec("ALTER TABLE lf_inventario_movimientos MODIFY tipo VARCHAR(20) NOT NULL");
+        }
+    }
+
     /** Lo que hace cada versión, para mostrarlo en Mantenimiento. */
     const DESCRIPCIONES = [
         1 => 'Tabla de ajustes propia (lf_ajustes)',
@@ -1572,5 +1666,6 @@ final class Migraciones
         27 => 'Subcategorías de producto (categorías con padre) y registro del envío de cotizaciones por correo',
         28 => 'Envíos con Envia.com: dirección de salida por sucursal y guías con rastreo ligadas a la venta',
         29 => 'Capturas de entrada y salida con pistola de código de barras, que se pueden pausar y retomar',
+        30 => 'Mercado Libre: cuenta de vendedor por empresa, publicaciones vinculadas a productos y órdenes que descuentan existencias',
     ];
 }

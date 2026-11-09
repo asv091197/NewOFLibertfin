@@ -42,6 +42,9 @@ final class Inventario
         // perdió, no que se usó. Mezclarlas hace imposible contestar
         // cuánto se está tirando, que es justo lo que hay que vigilar.
         'merma'      => 'Merma',
+        // Lo que se vendió en Mercado Libre (ver MeliInventario). Aparte de
+        // «venta» porque no tiene folio de Caja: la cobró Mercado Libre.
+        'mercadolibre' => 'Mercado Libre',
     ];
 
     /** Por qué se perdió. Obliga a decirlo: «salida» sin motivo no dice nada. */
@@ -409,6 +412,30 @@ final class Inventario
     }
 
     /**
+     * Lo que mueve una orden de Mercado Libre: negativo al pagarse,
+     * positivo si se cancela después.
+     *
+     * Como una venta de Caja, descuenta aunque quede en negativo y sin
+     * mirar «No dejar vender»: la venta ya ocurrió allá y el cliente ya
+     * pagó. El negativo dice que falta registrar una entrada.
+     *
+     * Un producto que dejó de llevar existencias no se toca.
+     *
+     * @return float|null lo que quedó, o null si no se movió
+     */
+    public function moverPorMercadoLibre($productoId, $sucursalId, $delta, $nota)
+    {
+        if (!$this->llevan([(int)$productoId])) return null;
+        $delta = round((float)$delta, 3);
+        if (abs($delta) < 0.0005) return null;
+        return $this->enTransaccion(function () use ($productoId, $sucursalId, $delta, $nota) {
+            return $this->mover($productoId, $sucursalId, $delta,
+                                $delta < 0 ? 'mercadolibre' : 'devolucion',
+                                ['nota' => mb_substr((string)$nota, 0, 255)]);
+        });
+    }
+
+    /**
      * Pasar piezas de una sucursal a otra. Son dos movimientos (sale de
      * una, entra a la otra) dentro de la misma transacción: nunca queda
      * la mitad. No se manda lo que no hay: el traspaso es físico.
@@ -650,6 +677,12 @@ final class Inventario
         // en tres minutos. Olvidarlo aquí lo hace exacto sin consultar en
         // cada página.
         Alertas::olvidar($sucursalId);
+
+        // Si la empresa vende en Mercado Libre, sus publicaciones de este
+        // producto quedan pendientes de actualizar. Solo marca: la
+        // llamada a Mercado Libre va al terminar la petición, fuera de
+        // esta transacción. Una empresa sin Mercado Libre no lo nota.
+        MeliInventario::marcar($this->db, $productoId);
 
         return $queda;
     }

@@ -139,6 +139,11 @@ final class Permisos
         // paquete sale del mostrador y no del escritorio del dueño.
         'ver.envios'          => ['admin','cajero','inventario'],
         'editar.envios'       => ['admin','cajero','inventario'],
+        // Mercado Libre: lo ve y lo opera quien lleva el inventario.
+        // CONECTAR la cuenta pide `editar.ajustes`: compromete la cuenta
+        // de vendedor de la empresa entera, eso es del administrador.
+        'ver.mercadolibre'    => ['admin','inventario'],
+        'editar.mercadolibre' => ['admin','inventario'],
         'ver.agenda'          => ['admin','cajero'],
         'editar.agenda'       => ['admin','cajero'],
         'editar.gastos'    => ['admin','inventario'],

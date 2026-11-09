@@ -420,4 +420,53 @@ return [
         'formato_etiqueta' => 'PDF',
         'tamano_etiqueta'  => 'STOCK_4X6',
     ],
+
+    // ─────────────────────────────────────────────────────────────
+    //  MERCADO LIBRE
+    // ─────────────────────────────────────────────────────────────
+    //
+    //  AQUÍ VA LA APLICACIÓN, NO LAS CUENTAS.
+    //
+    //  LibertyFin registra UNA aplicación en Mercado Libre para toda la
+    //  instalación. Cada EMPRESA conecta después su propia cuenta de
+    //  vendedor desde el menú Mercado Libre → «Conectar»: el
+    //  administrador entra a Mercado Libre y autoriza. Las llaves de cada
+    //  cuenta se guardan cifradas en la base de su empresa; aquí nunca.
+    //
+    //  CÓMO SE CREA LA APLICACIÓN
+    //
+    //  https://developers.mercadolibre.com.mx → Mis aplicaciones → Crear.
+    //
+    //    · URI de redirect:  https://TU-DOMINIO/mercadolibre/retorno
+    //      Tiene que ser IDÉNTICA a `retorno` de abajo, letra por letra,
+    //      con https. Si no, Mercado Libre contesta «invalid redirect_uri».
+    //    · Permisos (scopes): offline_access, read, write.
+    //      Sin offline_access no hay refresh_token y la conexión se cae a
+    //      las 6 horas.
+    //    · Notificaciones → URL:  https://TU-DOMINIO/mercadolibre/aviso
+    //      Temas: Orders (orders_v2) e Items.
+    //    · PKCE: puede ir encendido o apagado; aquí se manda siempre.
+    //
+    //  Al guardar te da el App ID y la Secret Key: van abajo.
+    //
+    //  Para revisar que quedó, y para la tarea que sincroniza cada rato:
+    //    php app/bin/meli-sincronizar.php --revisar
+    //
+    'mercadolibre' => [
+        'activo'  => false,
+        'app_id'  => '',   // App ID (client_id)
+        'secreto' => '',   // Secret Key (client_secret)
+        'retorno' => '',   // https://TU-DOMINIO/mercadolibre/retorno
+        'pais'    => 'MX', // MX · AR · CO · CL · PE · UY · BR: dónde inicia sesión el vendedor
+
+        // Con qué se cifran las llaves de cada empresa en su base. Vacío =
+        // se deriva del `secreto`. Ponle una propia (64 caracteres al azar)
+        // si algún día vas a rotar el secreto: cambiar la que esté en uso
+        // obliga a que todas las empresas vuelvan a conectar.
+        //   php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
+        'llave_cifrado' => '',
+
+        'pkce'    => true,
+        'timeout' => 25,
+    ],
 ];

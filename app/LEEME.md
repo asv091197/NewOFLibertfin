@@ -617,6 +617,44 @@ Cuando llegue la cuenta, lo que falta es `RecargasControlador::consultar()` y
 `::vender()`. Todo lo demás —pantalla, validación, ruta condicionada, registro
 como venta— ya está.
 
+## Mercado Libre
+
+Módulo de Comercio (requiere Inventario). **Una aplicación para toda la
+instalación, una cuenta de vendedor por empresa.**
+
+- La aplicación (App ID, secreto, dirección de retorno) va en
+  `config/integraciones.php`, bloque `mercadolibre`. Ahí mismo dice cómo
+  crearla en developers.mercadolibre.com.mx.
+- Cada empresa conecta SU cuenta desde Mercado Libre → «Conectar»: el
+  administrador entra a Mercado Libre y autoriza. Las llaves de esa cuenta
+  se guardan **cifradas** en la base de la empresa (`lf_meli_cuenta`); un
+  respaldo de la base no basta para usarlas.
+- `lf_ruta_meli`, en la base principal, dice de qué empresa es cada cuenta.
+  Es lo que permite que un aviso sin sesión sepa a qué base ir, y lo que
+  impide conectar la misma cuenta a dos empresas (cada venta se descontaría
+  dos veces).
+
+**Qué se sincroniza:**
+
+| Dirección | Cuándo | Qué hace |
+|---|---|---|
+| Mercado Libre → aquí | La orden queda **pagada** | Descuenta de la sucursal elegida, movimiento «Mercado Libre». Si se cancela después, regresa. Una sola vez por orden. |
+| Aquí → Mercado Libre | Cualquier movimiento de inventario | Manda la existencia (menos la reserva) a las publicaciones vinculadas. **Nace apagado.** |
+
+Las publicaciones se emparejan con productos por SKU (el `SELLER_SKU` de
+Mercado Libre contra el SKU o el código de barras) solo cuando coincide con
+UN producto; lo demás se vincula a mano. Cada variación es un renglón: la
+talla M y la G son productos distintos.
+
+**No crea ventas** en LibertyFin: esas las cobra Mercado Libre y no pasan
+por la caja. **No toca publicaciones en Full** ni órdenes anteriores a la
+conexión.
+
+**Avisos y tarea.** La aplicación debe avisar a `/mercadolibre/aviso`
+(temas `orders_v2` e `items`). Como un aviso se puede perder, programa
+`php app/bin/meli-sincronizar.php` cada 10 minutos: recupera órdenes y manda
+lo pendiente. `--revisar` solo revisa.
+
 ## Lo que queda fuera, y por qué
 
 **Promociones.** No es una tabla, son cinco: `promociones`,
