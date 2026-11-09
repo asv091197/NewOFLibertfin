@@ -368,6 +368,22 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
         <a class="lf-link" href="/servicios?t=promociones&amp;nueva=1&amp;producto=<?= (int)$e['id'] ?>">
           Ponerle una promoción</a>
       <?php endif; ?>
+      <?php /* Mercado Libre: solo con el módulo encendido, permiso y cuenta
+               conectada (ServiciosControlador::meliDe). Es un enlace y no un
+               botón del formulario: publicar no guarda los cambios de aquí. */
+      if ($e && !empty($meli)): ?>
+        <?php if (!empty($meli['publicado'])): ?>
+          <?php if (!empty($meli['publicado']['permalink'])): ?>
+            <a class="lf-link" href="<?= P::e($meli['publicado']['permalink']) ?>" target="_blank" rel="noopener">
+              Ver en Mercado Libre ↗</a>
+          <?php else: ?>
+            <span class="lf-link">En Mercado Libre: <?= P::e($meli['publicado']['item_id']) ?></span>
+          <?php endif; ?>
+        <?php elseif (!empty($e['lleva_inventario'])): ?>
+          <a class="btn btn-secondary" href="/mercadolibre/publicar?producto=<?= (int)$e['id'] ?>">
+            <?= W::icono('bolsa','14px') ?> Publicar en Mercado Libre</a>
+        <?php endif; ?>
+      <?php endif; ?>
     </div>
     <p style="width:100%;font-size:11.5px;color:var(--lf-tinta-4);margin:0">
       Escribe la utilidad y el precio se calcula solo, o al revés. El costo se resta antes de calcular

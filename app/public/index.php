@@ -290,6 +290,8 @@ $r->post('/mercadolibre/ajustes',        ['LibertyFin\Controlador\MercadoLibreCo
 $r->post('/mercadolibre/importar',       ['LibertyFin\Controlador\MercadoLibreControlador', 'importar']);
 $r->post('/mercadolibre/vincular',       ['LibertyFin\Controlador\MercadoLibreControlador', 'vincular']);
 $r->post('/mercadolibre/sincronizar',    ['LibertyFin\Controlador\MercadoLibreControlador', 'sincronizar']);
+$r->get('/mercadolibre/publicar',        ['LibertyFin\Controlador\MercadoLibreControlador', 'publicar']);
+$r->post('/mercadolibre/publicar',       ['LibertyFin\Controlador\MercadoLibreControlador', 'publicarGuardar']);
 $r->get('/igualas',                      ['LibertyFin\Controlador\IgualasControlador', 'index']);
 $r->post('/igualas/guardar',             ['LibertyFin\Controlador\IgualasControlador', 'guardar']);
 $r->post('/igualas/alternar',            ['LibertyFin\Controlador\IgualasControlador', 'alternar']);
@@ -524,6 +526,7 @@ $permisos = [
   '/mercadolibre/importar'    => 'editar.mercadolibre',
   '/mercadolibre/vincular'    => 'editar.mercadolibre',
   '/mercadolibre/sincronizar' => 'editar.mercadolibre',
+  '/mercadolibre/publicar'    => 'editar.mercadolibre',
   '/igualas'                => 'ver.igualas',
   '/igualas/guardar'        => 'editar.igualas',
   '/igualas/alternar'       => 'editar.igualas',

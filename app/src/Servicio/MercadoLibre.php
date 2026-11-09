@@ -349,7 +349,72 @@ final class MercadoLibre
         return $todas;
     }
 
-    /** Quitar el permiso de LibertyFin en la cuenta. Si falla no importa: las llaves se borran igual. */
+    // ════════════════════════════════════════════════════════
+    //  PUBLICAR DESDE LIBERTYFIN
+    // ════════════════════════════════════════════════════════
+
+    const SITIOS  = ['MX' => 'MLM', 'AR' => 'MLA', 'BR' => 'MLB', 'CO' => 'MCO', 'CL' => 'MLC', 'PE' => 'MPE', 'UY' => 'MLU'];
+    const MONEDAS = ['MLM' => 'MXN', 'MLA' => 'ARS', 'MLB' => 'BRL', 'MCO' => 'COP', 'MLC' => 'CLP', 'MPE' => 'PEN', 'MLU' => 'UYU'];
+
+    /** El sitio de Mercado Libre del país configurado: MLM para México. */
+    public static function sitio()  { return self::SITIOS[self::pais()]; }
+    public static function moneda() { return self::MONEDAS[self::sitio()]; }
+
+    /**
+     * Las categorías que Mercado Libre sugiere para un título.
+     * @return array [{category_id, category_name, domain_name}] (vacío si no sugiere nada)
+     */
+    public function sugerirCategorias($token, $titulo, $tope = 6)
+    {
+        $r = $this->llamar('GET', '/sites/' . self::sitio() . '/domain_discovery/search?limit=' . (int)$tope
+                           . '&q=' . rawurlencode((string)$titulo), $token);
+        $lista = [];
+        foreach ((array)$r as $s) {
+            if (!empty($s['category_id'])) $lista[(string)$s['category_id']] = $s;
+        }
+        return array_values($lista);
+    }
+
+    /** La categoría: su ruta (path_from_root) y si admite publicar ahí (settings.listing_allowed). */
+    public function categoria($token, $categoriaId)
+    {
+        return $this->llamar('GET', '/categories/' . rawurlencode((string)$categoriaId), $token);
+    }
+
+    /** La ficha técnica que pide la categoría. */
+    public function atributosDeCategoria($token, $categoriaId)
+    {
+        return $this->llamar('GET', '/categories/' . rawurlencode((string)$categoriaId) . '/attributes', $token);
+    }
+
+    /**
+     * Sube una foto desde un archivo del servidor. Se sube el archivo y no
+     * se manda una dirección: así sirve aunque las imágenes de LibertyFin
+     * no se puedan ver sin iniciar sesión, o el servidor sea local.
+     * @return string el id de la foto en Mercado Libre, o '' si no se pudo
+     */
+    public function subirFoto($token, $rutaArchivo, $mime = 'image/jpeg')
+    {
+        if (!is_file($rutaArchivo)) { $this->ultimoError = 'No se encontró la imagen.'; return ''; }
+        $r = $this->llamar('POST', '/pictures/items/upload', $token,
+                           ['file' => new \CURLFile($rutaArchivo, $mime, basename($rutaArchivo))], 'multipart');
+        return is_array($r) && !empty($r['id']) ? (string)$r['id'] : '';
+    }
+
+    public function crearPublicacion($token, array $cuerpo)
+    {
+        return $this->llamar('POST', '/items', $token, $cuerpo);
+    }
+
+    /** La descripción va aparte: Mercado Libre no la acepta dentro de la publicación. */
+    public function ponerDescripcion($token, $itemId, $texto)
+    {
+        return $this->llamar('POST', '/items/' . rawurlencode((string)$itemId) . '/description', $token,
+                             ['plain_text' => (string)$texto]) !== null;
+    }
+
+    // ════════════════════════════════════════════════════════
+
     /**
      * Crea un usuario de PRUEBA de Mercado Libre (para bin/meli-usuario-prueba.php).
      * Devuelve {id, nickname, password, site_status} o null.
@@ -360,6 +425,7 @@ final class MercadoLibre
         return $this->llamar('POST', '/users/test_user', $token, ['site_id' => (string)$siteId]);
     }
 
+    /** Quitar el permiso de LibertyFin en la cuenta. Si falla no importa: las llaves se borran igual. */
     public function revocar($token, $userId)
     {
         return $this->llamar('DELETE', '/users/' . rawurlencode((string)$userId) . '/applications/'
@@ -439,7 +505,10 @@ final class MercadoLibre
                 CURLOPT_SSL_VERIFYHOST => 2,
             ];
             if ($cuerpo !== null) {
-                if ($formulario) {
+                if ($formulario === 'multipart') {
+                    // curl arma el multipart y su Content-Type con el límite.
+                    $op[CURLOPT_POSTFIELDS] = $cuerpo;
+                } elseif ($formulario) {
                     $cab[] = 'Content-Type: application/x-www-form-urlencoded';
                     $op[CURLOPT_POSTFIELDS] = http_build_query($cuerpo);
                 } else {

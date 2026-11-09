@@ -8,6 +8,7 @@ use LibertyFin\Http\Peticion;
 use LibertyFin\Servicio\Auditoria;
 use LibertyFin\Servicio\Inventario;
 use LibertyFin\Servicio\MeliInventario;
+use LibertyFin\Servicio\MeliPublicar;
 use LibertyFin\Servicio\MercadoLibre;
 use LibertyFin\Servicio\Modulos;
 use LibertyFin\Vista\Plantilla;
@@ -338,6 +339,164 @@ final class MercadoLibreControlador
             error_log('[LibertyFin] meli/sincronizar: ' . $e->getMessage());
             $this->volver('No se pudo sincronizar: ' . $e->getMessage(), 'error');
         }
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  PUBLICAR UN PRODUCTO (ver Servicio\MeliPublicar)
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * GET /mercadolibre/publicar?producto=ID            paso 1: categoría
+     * GET /mercadolibre/publicar?producto=ID&categoria=X pasos 2 y 3: datos y ficha
+     */
+    public function publicar()
+    {
+        if (!Modulos::exigir('mercadolibre')) return;
+        if (empty($_SESSION['lf_token'])) $_SESSION['lf_token'] = bin2hex(random_bytes(16));
+        $db  = Conexion::de($_SESSION['empresa_db']);
+        $pub = new MeliPublicar($db);
+        $d   = $this->datosPublicar();
+
+        try {
+            $p = $pub->producto(Peticion::entero('producto'));
+            $d['producto'] = $p;
+            $ya = $pub->yaPublicado($p['id']);
+            if ($ya) {
+                $d['yaPublicado'] = $ya;
+                Plantilla::pagina('mercadolibre/publicar', $d);
+                return;
+            }
+            $cat = Peticion::texto('categoria');
+            if ($cat === '') {
+                $d['paso'] = 1;
+                $d['buscar'] = Peticion::texto('q') ?: (string)$p['nombre'];
+                $d['sugerencias'] = $pub->sugerencias($d['buscar']);
+            } else {
+                $d['paso'] = 2;
+                $d['categoria'] = $pub->categoria($cat);
+                $d['f'] = $this->valoresIniciales($pub, $p);
+            }
+        } catch (\InvalidArgumentException $e) {
+            $d['error'] = $e->getMessage();
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] meli/publicar: ' . $e->getMessage());
+            $d['error'] = self::faltaTabla($e) ? 'Falta actualizar la base (versión 30).' : $e->getMessage();
+        }
+        Plantilla::pagina('mercadolibre/publicar', $d);
+    }
+
+    /** POST /mercadolibre/publicar */
+    public function publicarGuardar()
+    {
+        if (!Modulos::exigir('mercadolibre')) return;
+        $db  = Conexion::de($_SESSION['empresa_db']);
+        $pub = new MeliPublicar($db);
+        $d   = $this->datosPublicar();
+        $d['paso'] = 2;
+        $f = $_POST;
+        $f['fotos_ml'] = array_values(array_filter((array)($_POST['fotos_ml'] ?? []), 'is_string'));
+        $d['f'] = $f;
+
+        $ok = !empty($_SESSION['lf_token']) && !empty($_POST['token']) && hash_equals($_SESSION['lf_token'], (string)$_POST['token']);
+        try {
+            if (!$ok) throw new \InvalidArgumentException('No se pudo verificar el formulario. Recarga la página.');
+            $p = $pub->producto((int)($_POST['producto'] ?? 0));
+            $d['producto'] = $p;
+            if ($ya = $pub->yaPublicado($p['id'])) {
+                $d['yaPublicado'] = $ya;
+                Plantilla::pagina('mercadolibre/publicar', $d);
+                return;
+            }
+            $d['categoria'] = $pub->categoria((string)($_POST['categoria'] ?? ''));
+
+            list($cuerpo, $errores) = MeliPublicar::armar($f, $d['categoria']['atributos'], MercadoLibre::moneda());
+            $fotos = $this->fotosDelFormulario($p, $errores);
+            if (!$fotos && !$f['fotos_ml']) $errores['fotos'] = 'Agrega al menos una foto.';
+            if ($errores) {
+                $d['errores'] = $errores;
+                $d['error'] = 'Revisa lo marcado en rojo.';
+                Plantilla::pagina('mercadolibre/publicar', $d);
+                return;
+            }
+
+            @set_time_limit(120);
+            $r = $pub->publicar($p, $cuerpo, $fotos, (string)($_POST['descripcion'] ?? ''), $f['fotos_ml']);
+            $item = $r['item'];
+            Auditoria::anota('meli.publicar', (string)$item['id'], null,
+                $p['codigo'] . ' · ' . ($cuerpo['title'] ?? $cuerpo['family_name'] ?? '') . ' · $' . $cuerpo['price'] . ' × ' . $cuerpo['available_quantity']);
+            $this->volver('Publicado en Mercado Libre: «' . ($item['title'] ?? $p['nombre']) . '» (' . $item['id'] . '), '
+                . 'ya vinculado a ' . $p['codigo'] . '.'
+                . (($item['status'] ?? '') !== 'active' ? ' Mercado Libre lo dejó en estado «' . ($item['status'] ?? '?') . '»: revísalo allá.' : '')
+                . $r['aviso'], 'ok');
+        } catch (\LibertyFin\Servicio\MeliRechazo $e) {
+            $d['f']['fotos_ml'] = $e->fotos();
+            $d['error'] = $e->getMessage();
+        } catch (\InvalidArgumentException $e) {
+            $d['error'] = $e->getMessage();
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] meli/publicar POST: ' . $e->getMessage());
+            $d['error'] = 'No se pudo publicar: ' . $e->getMessage();
+        }
+        Plantilla::pagina('mercadolibre/publicar', $d);
+    }
+
+    private function datosPublicar()
+    {
+        return [
+            'titulo' => 'Publicar en Mercado Libre', 'icono' => 'bolsa', 'subtitulo' => 'Un producto, una publicación',
+            'token' => $_SESSION['lf_token'] ?? '', 'paso' => 0, 'producto' => null, 'yaPublicado' => null,
+            'buscar' => '', 'sugerencias' => [], 'categoria' => null, 'f' => [], 'errores' => [], 'error' => '',
+            'moneda' => MercadoLibre::moneda(),
+        ];
+    }
+
+    private function valoresIniciales(MeliPublicar $pub, array $p)
+    {
+        $precio = (float)($p['subprecio'] ?? 0) > 0 ? (float)$p['subprecio'] : (float)($p['precio'] ?? 0);
+        return [
+            'titulo'    => mb_substr(trim((string)$p['nombre']), 0, MeliPublicar::MAX_TITULO),
+            'precio'    => number_format($precio, 2, '.', ''),
+            'cantidad'  => $pub->srv()->cantidadAPublicar($p['id']),
+            'condicion' => 'new', 'tipo' => 'gold_special', 'envio' => 'me2', 'envio_gratis' => '',
+            'garantia'  => '', 'garantia_tiempo' => '30', 'garantia_unidad' => 'días',
+            'descripcion' => trim((string)($p['descripcion'] ?? '')),
+            'usar_imagen' => !empty($p['imagen']) ? '1' : '',
+            'attr' => MeliPublicar::prellenado($p), 'attr_unidad' => [], 'fotos_ml' => [],
+        ];
+    }
+
+    /**
+     * Las fotos a subir: la del producto (si se marcó) y las que se
+     * agregaron en el formulario. Se revisa el CONTENIDO, no el nombre.
+     * @return array [['ruta','mime']]
+     */
+    private function fotosDelFormulario(array $p, array &$errores)
+    {
+        $fotos = [];
+        $tipos = [IMAGETYPE_JPEG => 'image/jpeg', IMAGETYPE_PNG => 'image/png', IMAGETYPE_WEBP => 'image/webp'];
+
+        $img = (string)($p['imagen'] ?? '');
+        if (!empty($_POST['usar_imagen']) && strpos($img, '/assets/subidas/') === 0 && strpos($img, '..') === false) {
+            $ruta = dirname(__DIR__, 2) . '/public' . $img;
+            $info = is_file($ruta) ? @getimagesize($ruta) : false;
+            if ($info && isset($tipos[$info[2]])) $fotos[] = ['ruta' => $ruta, 'mime' => $tipos[$info[2]]];
+            else $errores['fotos'] = 'La imagen del producto no se encontró o no es JPG, PNG o WebP: agrega otra.';
+        }
+
+        $up = $_FILES['fotos'] ?? null;
+        if ($up && is_array($up['name'] ?? null)) {
+            foreach ($up['name'] as $i => $nombre) {
+                if ((int)$up['error'][$i] === UPLOAD_ERR_NO_FILE || $nombre === '') continue;
+                if ((int)$up['error'][$i] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'][$i])) {
+                    $errores['fotos'] = 'No se pudo recibir «' . $nombre . '». Puede que pese demasiado.'; continue;
+                }
+                if ((int)$up['size'][$i] > 10485760) { $errores['fotos'] = '«' . $nombre . '» pesa más de 10 MB.'; continue; }
+                $info = @getimagesize($up['tmp_name'][$i]);
+                if (!$info || !isset($tipos[$info[2]])) { $errores['fotos'] = '«' . $nombre . '» no es JPG, PNG o WebP.'; continue; }
+                $fotos[] = ['ruta' => $up['tmp_name'][$i], 'mime' => $tipos[$info[2]]];
+            }
+        }
+        return array_slice($fotos, 0, MeliPublicar::MAX_FOTOS);
     }
 
     // ════════════════════════════════════════════════════════

@@ -48,8 +48,29 @@ final class ServiciosControlador
             // Lo que piden los módulos encendidos: duración (Agenda) y
             // sesiones de qué servicio (Paquetes).
             'modProducto' => $this->modProducto($db),
+            'meli'      => $this->meliDe($db, $editar),
         ]);
         unset($_SESSION['lf_aviso']);
+    }
+
+    /**
+     * Para el botón «Publicar en Mercado Libre» del producto que se edita.
+     * null si no aplica: módulo apagado, sin permiso, sin cuenta conectada.
+     * Nunca rompe la pantalla de Productos: cualquier falla es null.
+     */
+    private function meliDe($db, $productoId)
+    {
+        if (!$productoId) return null;
+        try {
+            if (!\LibertyFin\Servicio\Modulos::deSesion()->activo('mercadolibre')) return null;
+            if (!\LibertyFin\Dominio\Permisos::puede('editar.mercadolibre')) return null;
+            $srv = new \LibertyFin\Servicio\MeliInventario($db);
+            if (!$srv->conectada()) return null;
+            $ya = (new \LibertyFin\Servicio\MeliPublicar($db, $srv))->yaPublicado($productoId);
+            return ['publicado' => $ya];
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     /** ['agenda' => bool, 'paquetes' => bool, 'servicios' => [...]] o null si ninguno. */

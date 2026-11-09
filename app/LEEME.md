@@ -655,6 +655,17 @@ conexión.
 `php app/bin/meli-sincronizar.php` cada 10 minutos: recupera órdenes y manda
 lo pendiente. `--revisar` solo revisa.
 
+**Publicar desde LibertyFin.** En Productos → editar, «Publicar en Mercado
+Libre» (solo con la cuenta conectada y si el producto lleva existencias).
+Tres pasos: categoría sugerida por Mercado Libre, datos (título, precio,
+cantidad, envío, garantía, fotos, descripción) y la ficha técnica que pide
+esa categoría. La publicación nace vinculada al producto. No hace
+variaciones ni publicaciones de catálogo, y el precio solo se manda al
+publicar (ver `Servicio/MeliPublicar.php`).
+
+`php app/bin/meli-usuario-prueba.php --empresa=BASE` crea usuarios de
+prueba de Mercado Libre con la llave de esa empresa.
+
 ## Lo que queda fuera, y por qué
 
 **Promociones.** No es una tabla, son cinco: `promociones`,
