@@ -350,6 +350,16 @@ final class MercadoLibre
     }
 
     /** Quitar el permiso de LibertyFin en la cuenta. Si falla no importa: las llaves se borran igual. */
+    /**
+     * Crea un usuario de PRUEBA de Mercado Libre (para bin/meli-usuario-prueba.php).
+     * Devuelve {id, nickname, password, site_status} o null.
+     * Solo opera con otros usuarios de prueba; máximo 10 por cuenta.
+     */
+    public function crearUsuarioPrueba($token, $siteId = 'MLM')
+    {
+        return $this->llamar('POST', '/users/test_user', $token, ['site_id' => (string)$siteId]);
+    }
+
     public function revocar($token, $userId)
     {
         return $this->llamar('DELETE', '/users/' . rawurlencode((string)$userId) . '/applications/'
