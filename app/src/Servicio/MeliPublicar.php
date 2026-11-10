@@ -129,8 +129,13 @@ final class MeliPublicar
             $id = (string)($a['id'] ?? '');
             if ($id === '' || in_array($id, self::APARTE, true)) continue;
             $t = (array)($a['tags'] ?? []);
-            if (!empty($t['hidden']) || !empty($t['read_only']) || !empty($t['fixed'])) continue;
-            $obligatorio = !empty($t['required']) || !empty($t['catalog_required']);
+            // EMPTY_GTIN_REASON viene «hidden», pero es la única forma de
+            // publicar sin código de barras cuando la categoría pide GTIN.
+            $oculto = !empty($t['hidden']) && $id !== 'EMPTY_GTIN_REASON';
+            if ($oculto || !empty($t['read_only']) || !empty($t['fixed'])) continue;
+            // El atributo que define las fotos (Color) no trae «required»,
+            // pero Mercado Libre lo exige al publicar.
+            $obligatorio = !empty($t['required']) || !empty($t['catalog_required']) || !empty($t['defines_picture']);
             if (!$obligatorio && empty($t['conditional_required']) && !in_array($id, self::SIEMPRE, true)) continue;
 
             $vt = (string)($a['value_type'] ?? 'string');
@@ -248,8 +253,12 @@ final class MeliPublicar
             } elseif ($id === 'GTIN') {
                 $g = preg_replace('/[\s-]+/', '', $v);
                 if (!self::gtinValido($g)) {
-                    $e['attr_GTIN'] = 'El código de barras no es válido: debe tener 8, 12, 13 o 14 dígitos '
-                                    . '(EAN/UPC del fabricante). Si no tiene, déjalo vacío y elige abajo por qué.';
+                    $e['attr_GTIN'] = (preg_match('/^\d+$/', $g) && in_array(strlen($g), [8, 12, 13, 14], true)
+                        ? 'El último dígito del código de barras no corresponde (es un dígito de control que se '
+                          . 'calcula con los demás). Revisa que esté bien copiado del empaque.'
+                        : 'El código de barras debe tener solo números: 8, 12, 13 o 14 dígitos (lleva '
+                          . strlen($g) . ').')
+                        . ' Si el producto no tiene código, déjalo vacío y elige abajo por qué.';
                     continue;
                 }
                 $lista[] = ['id' => $id, 'value_name' => $g];
