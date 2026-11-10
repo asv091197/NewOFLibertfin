@@ -401,9 +401,57 @@ final class MercadoLibre
         // El nombre se arma con el tipo real de la imagen.
         $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
         $nombre = 'foto-' . substr(md5($rutaArchivo), 0, 8) . '.' . ($ext[$mime] ?? 'jpg');
+        $copia = self::agrandarSiEsChica($rutaArchivo, $mime);
         $r = $this->llamar('POST', '/pictures/items/upload', $token,
-                           ['file' => new \CURLFile($rutaArchivo, $mime, $nombre)], 'multipart');
+                           ['file' => new \CURLFile($copia ?: $rutaArchivo, $mime, $nombre)], 'multipart');
+        if ($copia) @unlink($copia);
         return is_array($r) && !empty($r['id']) ? (string)$r['id'] : '';
+    }
+
+    /** Lado mayor con el que se manda la foto (lo que recomienda Mercado Libre para el zoom). */
+    const FOTO_LADO = 1200;
+
+    /**
+     * Mercado Libre rechaza fotos de menos de 500 px por lado (contando
+     * después de quitar los bordes blancos). Si la foto es chica se agranda
+     * en una copia temporal hasta FOTO_LADO en su lado mayor; el archivo
+     * original no se toca.
+     * @return string la ruta de la copia, o '' si no hizo falta o no se pudo
+     */
+    private static function agrandarSiEsChica($ruta, $mime)
+    {
+        if (!function_exists('imagecreatetruecolor')) return '';
+        $info = @getimagesize($ruta);
+        if (!$info || max($info[0], $info[1]) >= self::FOTO_LADO) return '';
+
+        $abrir   = ['image/jpeg' => 'imagecreatefromjpeg', 'image/png' => 'imagecreatefrompng',
+                    'image/webp' => 'imagecreatefromwebp', 'image/gif' => 'imagecreatefromgif'];
+        $guardar = ['image/jpeg' => function ($im, $f) { return imagejpeg($im, $f, 92); },
+                    'image/png'  => function ($im, $f) { return imagepng($im, $f, 6); },
+                    'image/webp' => function ($im, $f) { return imagewebp($im, $f, 92); },
+                    'image/gif'  => function ($im, $f) { return imagegif($im, $f); }];
+        if (!isset($abrir[$mime]) || !function_exists($abrir[$mime])) return '';
+
+        $orig = @$abrir[$mime]($ruta);
+        if (!$orig) return '';
+        $escala = self::FOTO_LADO / max($info[0], $info[1]);
+        $an = max(1, (int)round($info[0] * $escala));
+        $al = max(1, (int)round($info[1] * $escala));
+
+        $nueva = imagecreatetruecolor($an, $al);
+        if ($mime !== 'image/jpeg') {                 // conservar la transparencia
+            imagealphablending($nueva, false);
+            imagesavealpha($nueva, true);
+            imagefill($nueva, 0, 0, imagecolorallocatealpha($nueva, 0, 0, 0, 127));
+        }
+        imagecopyresampled($nueva, $orig, 0, 0, 0, 0, $an, $al, $info[0], $info[1]);
+        imagedestroy($orig);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'meli');
+        $ok = $tmp && $guardar[$mime]($nueva, $tmp);
+        imagedestroy($nueva);
+        if (!$ok) { if ($tmp) @unlink($tmp); return ''; }
+        return $tmp;
     }
 
     public function crearPublicacion($token, array $cuerpo)
