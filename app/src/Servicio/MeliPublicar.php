@@ -165,12 +165,30 @@ final class MeliPublicar
         return $r;
     }
 
+    /**
+     * GTIN (EAN-8, UPC-A, EAN-13, GTIN-14): solo dígitos, 8/12/13/14 de
+     * largo y con el dígito verificador correcto, como lo valida Mercado Libre.
+     */
+    public static function gtinValido($codigo)
+    {
+        $c = (string)$codigo;
+        if (!preg_match('/^\d+$/', $c) || !in_array(strlen($c), [8, 12, 13, 14], true)) return false;
+        $suma = 0;
+        $n = strlen($c) - 1;
+        for ($i = 0; $i < $n; $i++) {                 // de derecha a izquierda: pesos 3,1,3,1…
+            $suma += (int)$c[$n - 1 - $i] * ($i % 2 === 0 ? 3 : 1);
+        }
+        return (10 - $suma % 10) % 10 === (int)$c[$n];
+    }
+
     /** Lo que ya se sabe del producto, para no preguntarlo. */
     public static function prellenado(array $producto)
     {
+        // El código de barras interno (no EAN/UPC) no sirve como GTIN: no se prellena.
+        $barras = preg_replace('/[\s-]+/', '', (string)($producto['codigo_barras'] ?? ''));
         return array_filter([
             'BRAND'      => trim((string)($producto['marca'] ?? '')),
-            'GTIN'       => trim((string)($producto['codigo_barras'] ?? '')),
+            'GTIN'       => self::gtinValido($barras) ? $barras : '',
             'SELLER_SKU' => trim((string)($producto['codigo'] ?? '')),
         ], 'strlen');
     }
@@ -227,6 +245,14 @@ final class MeliPublicar
                 } else {
                     $lista[] = ['id' => $id, 'value_name' => $n];
                 }
+            } elseif ($id === 'GTIN') {
+                $g = preg_replace('/[\s-]+/', '', $v);
+                if (!self::gtinValido($g)) {
+                    $e['attr_GTIN'] = 'El código de barras no es válido: debe tener 8, 12, 13 o 14 dígitos '
+                                    . '(EAN/UPC del fabricante). Si no tiene, déjalo vacío y elige abajo por qué.';
+                    continue;
+                }
+                $lista[] = ['id' => $id, 'value_name' => $g];
             } else {
                 $lista[] = ['id' => $id, 'value_name' => mb_substr($v, 0, $a['max'])];
             }
