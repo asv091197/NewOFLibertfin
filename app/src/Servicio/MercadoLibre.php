@@ -396,8 +396,13 @@ final class MercadoLibre
     public function subirFoto($token, $rutaArchivo, $mime = 'image/jpeg')
     {
         if (!is_file($rutaArchivo)) { $this->ultimoError = 'No se encontró la imagen.'; return ''; }
+        // Mercado Libre valida por la EXTENSIÓN del nombre: los archivos
+        // recién subidos tienen nombre temporal (php1A2B.tmp) y los rechaza.
+        // El nombre se arma con el tipo real de la imagen.
+        $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+        $nombre = 'foto-' . substr(md5($rutaArchivo), 0, 8) . '.' . ($ext[$mime] ?? 'jpg');
         $r = $this->llamar('POST', '/pictures/items/upload', $token,
-                           ['file' => new \CURLFile($rutaArchivo, $mime, basename($rutaArchivo))], 'multipart');
+                           ['file' => new \CURLFile($rutaArchivo, $mime, $nombre)], 'multipart');
         return is_array($r) && !empty($r['id']) ? (string)$r['id'] : '';
     }
 

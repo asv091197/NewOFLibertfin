@@ -85,7 +85,7 @@ final class Modulos
      * Cuando se decida en qué planes entra, se agrega a `modulos` en
      * `config/planes.php` y se quita de aquí.
      */
-    const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre'];
+     const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre'];
 
     private $cfg;
     private static $plan = null;   // [clave_plan => modulos|null] por petición
