@@ -1,782 +1,589 @@
 <?php
 namespace LibertyFin\Servicio;
 
-use PDO;
-
 /**
- * Inventario: cuántas piezas hay de cada producto en cada sucursal, y por
- * qué cambió cada vez.
+ * Mercado Libre: hablar con su API en nombre de UNA cuenta de vendedor.
  *
- * SOLO PARA QUIEN LO ENCIENDE
+ * ──────────────────────────────────────────────────────────────────────
+ * UNA APLICACIÓN, MUCHAS CUENTAS
  *
- * Nace apagado (Ajustes → Inventario). Una empresa de servicios no tiene
- * existencias y no debe ver nada de esto. Con el módulo encendido, cuenta
- * solo los productos marcados con «Lleva existencias»: en una misma
- * empresa conviven la crema que se vende y el masaje que no se almacena.
+ * LibertyFin registra UNA aplicación en developers.mercadolibre.com.mx
+ * (app_id + secreto + dirección de retorno). Esa va en
+ * config/integraciones.php, bloque `mercadolibre`, y es de toda la
+ * instalación.
  *
- * DÓNDE VIVE
+ * Pero quien vende es cada EMPRESA, con su propia cuenta de vendedor. La
+ * empresa "conecta" su cuenta: el administrador entra a Mercado Libre,
+ * autoriza a LibertyFin, y Mercado Libre nos devuelve un par de llaves
+ * (access_token y refresh_token) que solo sirven para ESA cuenta. Esas
+ * llaves se guardan en la base de la empresa, cifradas.
  *
- * La existencia, en `producto_sucursal` (del sistema anterior: una fila
- * por producto y sucursal). `productos.stock` queda como la suma de todas
- * las sucursales, para quien todavía lo lea.
+ * Así una empresa nunca puede tocar las publicaciones de otra: no tiene
+ * sus llaves.
+ * ──────────────────────────────────────────────────────────────────────
  *
- * NADA SE MUEVE SIN RASTRO
+ * LAS LLAVES CADUCAN, Y EL REFRESH SE GASTA
  *
- * Cada cambio deja un renglón en `lf_inventario_movimientos` con cuánto,
- * cuánto quedó, quién y por qué. No hay forma de "editar" una existencia:
- * se registra una entrada, una salida o un conteo. Así, cuando no cuadra,
- * se puede leer la historia en vez de adivinarla.
+ * El access_token dura 6 horas. Se renueva con el refresh_token, y aquí
+ * está la trampa: cada refresh_token sirve UNA sola vez. Mercado Libre
+ * devuelve uno nuevo en cada renovación y el viejo deja de valer.
+ *
+ * Si dos peticiones renuevan al mismo tiempo, la segunda usa un refresh
+ * que la primera ya gastó, recibe `invalid_grant` y la cuenta queda
+ * desconectada sin que nadie haya hecho nada mal. Por eso la renovación
+ * va dentro de un candado de MySQL (GET_LOCK) y relee la cuenta al
+ * entrar: si otro ya renovó, usa lo que dejó.
+ *
+ * Esta clase no sabe de tablas: recibe y devuelve la cuenta como arreglo,
+ * y quien la usa (Servicio\MeliInventario) decide dónde se guarda.
  */
-final class Inventario
+final class MercadoLibre
 {
-    /** Los tipos de movimiento, como se leen en pantalla. */
-    const TIPOS = [
-        'inicial'    => 'Existencia inicial',
-        'entrada'    => 'Entrada',
-        'salida'     => 'Salida',
-        'conteo'     => 'Conteo',
-        'venta'      => 'Venta',
-        'devolucion' => 'Devolución',
-        'traspaso'   => 'Traspaso',
-        // Aparte de «salida» a propósito: una merma es mercancía que se
-        // perdió, no que se usó. Mezclarlas hace imposible contestar
-        // cuánto se está tirando, que es justo lo que hay que vigilar.
-        'merma'      => 'Merma',
+    const API = 'https://api.mercadolibre.com';
+
+    /** Dónde se autoriza, por país. El de la API es el mismo para todos. */
+    const AUTORIZAR = [
+        'MX' => 'https://auth.mercadolibre.com.mx/authorization',
+        'AR' => 'https://auth.mercadolibre.com.ar/authorization',
+        'CO' => 'https://auth.mercadolibre.com.co/authorization',
+        'CL' => 'https://auth.mercadolibre.cl/authorization',
+        'PE' => 'https://auth.mercadolibre.com.pe/authorization',
+        'UY' => 'https://auth.mercadolibre.com.uy/authorization',
+        'BR' => 'https://auth.mercadolivre.com.br/authorization',
     ];
 
-    /** Por qué se perdió. Obliga a decirlo: «salida» sin motivo no dice nada. */
-    const MOTIVOS_MERMA = [
-        'danado'   => 'Dañado',
-        'caducado' => 'Caducado',
-        'robo'     => 'Robo o faltante',
-        'muestra'  => 'Muestra o degustación',
-        'uso'      => 'Uso interno',
-        'otro'     => 'Otro',
-    ];
+    /** Cuánto antes de que caduque se renueva (segundos). */
+    const MARGEN = 300;
 
-    /** Unidad => [nombre, abreviatura]. */
-    const UNIDADES = [
-        'pieza'   => ['Pieza', 'pza'],
-        'caja'    => ['Caja', 'caja'],
-        'paquete' => ['Paquete', 'paq'],
-        'kg'      => ['Kilo', 'kg'],
-        'litro'   => ['Litro', 'L'],
-        'metro'   => ['Metro', 'm'],
-    ];
+    private static $config = null;
 
-    /** Las que se venden por fracción: 0.5 kg, 1.25 m. Las demás, por pieza entera. */
-    const FRACCION = ['kg', 'litro', 'metro'];
-
-    /** ¿Esta unidad admite fracciones? La del sistema anterior puede venir como «Kg». */
-    public static function fraccionable($unidad)
-    {
-        return in_array(strtolower(trim((string)$unidad)), self::FRACCION, true);
-    }
-
-    private $db;
-    private $cfg;
-
-    /** @param array|null $cfg  lo de ConfigRepo::inventario(); sin él se lee de la base */
-    public function __construct(PDO $db, $cfg = null)
-    {
-        $this->db  = $db;
-        $this->cfg = is_array($cfg) ? $cfg : (new \LibertyFin\Datos\ConfigRepo($db))->inventario();
-    }
-
-    public function activo()  { return ($this->cfg['activo'] ?? 'no') === 'si'; }
-    public function bloquea() { return ($this->cfg['sin_existencia'] ?? 'avisar') === 'bloquear'; }
+    private $ultimoError = '';
+    private $ultimoHttp = 0;
+    private $espia = null;
 
     // ════════════════════════════════════════════════════════
-    //  LEER
+    //  LA CONFIGURACIÓN DE LA APLICACIÓN
     // ════════════════════════════════════════════════════════
 
-    /** Las sucursales activas, la matriz primero. */
-    public function sucursales()
+    /**
+     * El bloque `mercadolibre` de config/integraciones.php.
+     *
+     * Se lee directo del archivo y no por Servicio\Integraciones: aquel
+     * solo entrega los bloques de su catálogo, y uno que no esté ahí se
+     * ignora en silencio. Leerlo aquí hace que esta integración funcione
+     * sin depender de que alguien se acuerde de darlo de alta allá.
+     */
+    public static function config()
     {
-        return $this->todos("
-            SELECT id, nombre, COALESCE(es_matriz,0) AS es_matriz FROM sucursales
-            WHERE COALESCE(activo,1) = 1
-            ORDER BY COALESCE(es_matriz,0) DESC, nombre");
+        if (self::$config !== null) return self::$config;
+        $ruta = dirname(__DIR__, 2) . '/config/integraciones.php';
+        $todo = is_readable($ruta) ? (array)(require $ruta) : [];
+        return self::$config = (array)($todo['mercadolibre'] ?? []);
     }
 
-    /** La sucursal de quien opera. Si su usuario no tiene, la matriz. */
-    public function sucursalActual()
+    /** Para pruebas y para bin/: fija la configuración a mano. */
+    public static function usarConfig(array $c) { self::$config = $c; }
+
+    /** ¿Está puesta la aplicación? Sin ella no hay nada que conectar. */
+    public static function activa()
     {
-        $s = (int)($_SESSION['sucursal_id'] ?? 0);
-        if ($s) return $s;
-        $l = $this->sucursales();
-        return $l ? (int)$l[0]['id'] : 0;
+        return self::faltan() === [];
+    }
+
+    /** Qué le falta al bloque, para decirlo en pantalla. */
+    public static function faltan()
+    {
+        $c = self::config();
+        $f = [];
+        if (empty($c['activo']))                       $f[] = "'activo' => true";
+        if (trim((string)($c['app_id'] ?? '')) === '')  $f[] = 'app_id';
+        if (trim((string)($c['secreto'] ?? '')) === '') $f[] = 'secreto';
+        if (trim((string)($c['retorno'] ?? '')) === '') $f[] = 'retorno';
+        return $f;
+    }
+
+    public static function appId()   { return trim((string)(self::config()['app_id'] ?? '')); }
+    public static function retorno() { return trim((string)(self::config()['retorno'] ?? '')); }
+    public static function pais()
+    {
+        $p = strtoupper(trim((string)(self::config()['pais'] ?? 'MX')));
+        return isset(self::AUTORIZAR[$p]) ? $p : 'MX';
+    }
+
+    public function error() { return $this->ultimoError; }
+    public function http()  { return $this->ultimoHttp; }
+    public function espiar(callable $f) { $this->espia = $f; return $this; }
+
+    // ════════════════════════════════════════════════════════
+    //  CONECTAR UNA CUENTA (OAuth)
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * La dirección a la que se manda al administrador para que autorice.
+     *
+     * `state` es lo que evita que alguien nos haga conectar SU cuenta de
+     * Mercado Libre a NUESTRA empresa con un enlace preparado: se genera
+     * aquí, se guarda en la sesión, y al volver tiene que coincidir.
+     *
+     * PKCE (code_challenge) va encendido por omisión: si la aplicación lo
+     * tiene activado en el panel de Mercado Libre es obligatorio, y si no,
+     * no estorba. Se puede apagar con 'pkce' => false.
+     *
+     * @return array ['url' => ..., 'state' => ..., 'verificador' => ...]
+     */
+    public static function urlAutorizar()
+    {
+        $state = bin2hex(random_bytes(20));
+        $q = [
+            'response_type' => 'code',
+            'client_id'     => self::appId(),
+            'redirect_uri'  => self::retorno(),
+            'state'         => $state,
+        ];
+        $verificador = '';
+        if ((self::config()['pkce'] ?? true) !== false) {
+            $verificador = rtrim(strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=');
+            $q['code_challenge']        = rtrim(strtr(base64_encode(hash('sha256', $verificador, true)), '+/', '-_'), '=');
+            $q['code_challenge_method'] = 'S256';
+        }
+        return [
+            'url'         => self::AUTORIZAR[self::pais()] . '?' . http_build_query($q),
+            'state'       => $state,
+            'verificador' => $verificador,
+        ];
     }
 
     /**
-     * Existencia de los productos que llevan inventario, en una sucursal.
-     * @return array [producto_id => ['existencia' => float, 'minimo' => float]]
+     * Cambia el `code` que regresó Mercado Libre por las llaves.
+     *
+     * @return array|null ['user_id','access_token','refresh_token','expira_en'] o null
      */
-    public function existencias($sucursalId)
+    public function canjearCodigo($codigo, $verificador = '')
+    {
+        $p = [
+            'grant_type'    => 'authorization_code',
+            'client_id'     => self::appId(),
+            'client_secret' => trim((string)(self::config()['secreto'] ?? '')),
+            'code'          => (string)$codigo,
+            'redirect_uri'  => self::retorno(),
+        ];
+        if ($verificador !== '') $p['code_verifier'] = $verificador;
+        return $this->pedirToken($p);
+    }
+
+    /**
+     * Renueva con el refresh_token. Ver arriba por qué se gasta.
+     * @return array|null las llaves nuevas, o null (y error()) si no se pudo
+     */
+    public function renovar($refresh)
+    {
+        return $this->pedirToken([
+            'grant_type'    => 'refresh_token',
+            'client_id'     => self::appId(),
+            'client_secret' => trim((string)(self::config()['secreto'] ?? '')),
+            'refresh_token' => (string)$refresh,
+        ]);
+    }
+
+    /** ¿El último fallo fue porque la autorización ya no vale? Entonces hay que reconectar. */
+    public function fueAutorizacion()
+    {
+        $t = strtolower($this->ultimoError);
+        return strpos($t, 'invalid_grant') !== false || strpos($t, 'invalid_token') !== false
+            || strpos($t, 'unauthorized_client') !== false || $this->ultimoHttp === 401;
+    }
+
+    private function pedirToken(array $p)
+    {
+        $r = $this->llamar('POST', '/oauth/token', null, $p, true);
+        if (!is_array($r) || empty($r['access_token'])) {
+            if ($this->ultimoError === '') $this->ultimoError = 'Mercado Libre no devolvió las llaves.';
+            return null;
+        }
+        return [
+            'user_id'       => (string)($r['user_id'] ?? ''),
+            'access_token'  => (string)$r['access_token'],
+            'refresh_token' => (string)($r['refresh_token'] ?? ''),
+            // Se guarda la hora en que caduca, no "dura 6 horas": así no
+            // hay que recordar cuándo se pidió.
+            'expira_en'     => date('Y-m-d H:i:s', time() + max(60, (int)($r['expires_in'] ?? 21600))),
+        ];
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  LO QUE SE USA
+    // ════════════════════════════════════════════════════════
+
+    /** Quién es el dueño del token. */
+    public function yo($token)
+    {
+        return $this->llamar('GET', '/users/me', $token);
+    }
+
+    /**
+     * Todos los ids de publicaciones del vendedor.
+     *
+     * Con la búsqueda normal Mercado Libre corta en mil (offset máximo).
+     * El modo `scan` no tiene ese tope: se pide en tandas de cien con un
+     * `scroll_id` hasta que deja de devolver resultados.
+     */
+    public function idsDePublicaciones($token, $userId, $tope = 5000)
+    {
+        $ids = [];
+        $scroll = '';
+        for ($vuelta = 0; $vuelta < 100 && count($ids) < $tope; $vuelta++) {
+            $q = '/users/' . rawurlencode((string)$userId) . '/items/search?search_type=scan&limit=100'
+               . ($scroll !== '' ? '&scroll_id=' . rawurlencode($scroll) : '');
+            $r = $this->llamar('GET', $q, $token);
+            if (!is_array($r)) return $ids ?: null;
+            $lote = (array)($r['results'] ?? []);
+            if (!$lote) break;
+            foreach ($lote as $id) $ids[] = (string)$id;
+            $scroll = (string)($r['scroll_id'] ?? '');
+            if ($scroll === '') break;
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Varias publicaciones de una vez (Mercado Libre acepta hasta 20).
+     *
+     * `include_attributes=all` hace que cada variación traiga sus propios
+     * atributos, que es donde vive su SELLER_SKU. Sin eso, una playera en
+     * tres tallas llega con un solo SKU para las tres.
+     *
+     * @return array [item_id => cuerpo]
+     */
+    public function publicaciones($token, array $ids)
     {
         $r = [];
-        foreach ($this->todos("
-            SELECT p.id, COALESCE(ps.stock,0) AS existencia, COALESCE(ps.stock_minimo,0) AS minimo
-            FROM productos p
-            LEFT JOIN producto_sucursal ps ON ps.producto_id = p.id AND ps.sucursal_id = ?
-            WHERE p.lleva_inventario = 1", [(int)$sucursalId]) as $f) {
-            $r[(int)$f['id']] = ['existencia' => (float)$f['existencia'], 'minimo' => (float)$f['minimo']];
-        }
-        return $r;
-    }
-
-    /** Lo de un producto en cada sucursal, para su formulario. */
-    public function deProducto($productoId)
-    {
-        $r = [];
-        foreach ($this->sucursales() as $s) {
-            $f = $this->uno("SELECT stock, stock_minimo FROM producto_sucursal WHERE producto_id = ? AND sucursal_id = ?",
-                            [(int)$productoId, (int)$s['id']]);
-            $r[(int)$s['id']] = [
-                'nombre'      => $s['nombre'],
-                'existencia'  => $f ? (float)$f['stock'] : 0.0,
-                'minimo'      => $f ? (float)$f['stock_minimo'] : 0.0,
-                // Sin movimientos y en cero: todavía se puede capturar la
-                // existencia inicial. Después, solo entradas y conteos.
-                'puedeInicial'=> !$this->tieneMovimientos($productoId, $s['id'])
-                                 && (!$f || abs((float)$f['stock']) < 0.0005),
-            ];
-        }
-        return $r;
-    }
-
-    /**
-     * Encuentra UN producto por lo que se escribió o se escaneó.
-     *
-     * El escáner no elige de una lista: teclea un código y manda Enter.
-     * Así que la pantalla tiene que poder resolverlo sola, y el servidor
-     * también —si el navegador no alcanzó a emparejarlo, el código viaja
-     * tal cual y aquí se busca.
-     *
-     * Orden: código de barras exacto, SKU exacto, y recién después por
-     * nombre. Un código es inequívoco; un nombre no, y adivinar entre dos
-     * productos parecidos es cómo se descuenta del que no era.
-     *
-     * @return array|null el producto, o null si no hay UNO solo claro
-     */
-    public function buscarProducto($texto)
-    {
-        $t = trim((string)$texto);
-        if ($t === '') return null;
-
-        // La lista de la pantalla manda «SKU · Nombre»: se parte y se
-        // intenta con el código, que es la parte confiable.
-        $posible = [$t];
-        if (strpos($t, ' · ') !== false) $posible[] = trim(explode(' · ', $t)[0]);
-
-        foreach ($posible as $v) {
-            foreach (['codigo_barras', 'codigo'] as $col) {
-                $f = $this->uno("SELECT * FROM productos
-                                  WHERE $col = ? AND activo = 1 AND lleva_inventario = 1 LIMIT 1", [$v]);
-                if ($f) return $f;
-            }
-        }
-        // Por nombre, solo si hay UNO: con dos, que elija la persona.
-        $r = $this->todos("SELECT * FROM productos
-                            WHERE nombre LIKE ? AND activo = 1 AND lleva_inventario = 1 LIMIT 2",
-                          ['%' . $t . '%']);
-        return count($r) === 1 ? $r[0] : null;
-    }
-
-    /** Para el buscador de la pantalla: pocos renglones, con lo justo. */
-    public function sugerencias($texto, $sucursalId, $tope = 20)
-    {
-        $t = trim((string)$texto);
-        $l = '%' . $t . '%';
-        return $this->todos("
-            SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.unidad_medida,
-                   COALESCE(ps.stock,0) AS existencia
-              FROM productos p
-              LEFT JOIN producto_sucursal ps ON ps.producto_id = p.id AND ps.sucursal_id = ?
-             WHERE p.activo = 1 AND p.lleva_inventario = 1
-               AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ?)
-             ORDER BY p.nombre
-             LIMIT " . max(1, min(50, (int)$tope)), [(int)$sucursalId, $l, $l, $l]);
-    }
-
-    /** Los productos con inventario de una sucursal, lo que falta primero. */
-    public function listado($sucursalId, $buscar = '', $soloBajos = false)
-    {
-        $s = (int)$sucursalId;
-        $w = ['p.activo = 1', 'p.lleva_inventario = 1'];
-        $p = [$s];
-        if ($buscar !== '') {
-            $w[] = '(p.nombre LIKE ? OR p.codigo LIKE ?)';
-            $l = '%' . $buscar . '%'; $p[] = $l; $p[] = $l;
-        }
-        $estado = "CASE WHEN COALESCE(ps.stock,0) <= 0 THEN 0
-                        WHEN COALESCE(ps.stock_minimo,0) > 0 AND COALESCE(ps.stock,0) <= ps.stock_minimo THEN 1
-                        ELSE 2 END";
-        if ($soloBajos) $w[] = "$estado < 2";
-        return $this->todos("
-            SELECT p.id, p.codigo, p.nombre, p.unidad_medida, p.costo,
-                   COALESCE(ps.stock,0) AS existencia, COALESCE(ps.stock_minimo,0) AS minimo,
-                   $estado AS estado
-            FROM productos p
-            LEFT JOIN producto_sucursal ps ON ps.producto_id = p.id AND ps.sucursal_id = ?
-            WHERE " . implode(' AND ', $w) . "
-            ORDER BY $estado, p.nombre
-            LIMIT 500", $p);
-    }
-
-    /** Los números de arriba: cuántos, cuántos faltan y cuánto vale lo que hay. */
-    public function resumen($sucursalId)
-    {
-        $f = $this->uno("
-            SELECT COUNT(*) AS productos,
-                   SUM(CASE WHEN COALESCE(ps.stock,0) <= 0 THEN 1 ELSE 0 END) AS agotados,
-                   SUM(CASE WHEN COALESCE(ps.stock,0) > 0 AND COALESCE(ps.stock_minimo,0) > 0
-                             AND ps.stock <= ps.stock_minimo THEN 1 ELSE 0 END) AS bajos,
-                   SUM(CASE WHEN COALESCE(ps.stock,0) > 0 THEN ps.stock * COALESCE(p.costo,0) ELSE 0 END) AS valor
-            FROM productos p
-            LEFT JOIN producto_sucursal ps ON ps.producto_id = p.id AND ps.sucursal_id = ?
-            WHERE p.activo = 1 AND p.lleva_inventario = 1", [(int)$sucursalId]);
-        return ['productos' => (int)($f['productos'] ?? 0), 'agotados' => (int)($f['agotados'] ?? 0),
-                'bajos' => (int)($f['bajos'] ?? 0), 'valor' => round((float)($f['valor'] ?? 0), 2)];
-    }
-
-    /** La bitácora, lo más nuevo primero. */
-    public function movimientos(array $f = [])
-    {
-        $w = ['1 = 1']; $p = [];
-        if (!empty($f['desde']))    { $w[] = 'm.creado_en >= ?'; $p[] = $f['desde'] . ' 00:00:00'; }
-        if (!empty($f['hasta']))    { $w[] = 'm.creado_en < ?';  $p[] = date('Y-m-d', strtotime($f['hasta'] . ' +1 day')) . ' 00:00:00'; }
-        if (!empty($f['sucursal'])) { $w[] = 'm.sucursal_id = ?'; $p[] = (int)$f['sucursal']; }
-        if (!empty($f['producto'])) { $w[] = 'm.producto_id = ?'; $p[] = (int)$f['producto']; }
-        if (!empty($f['tipo']) && isset(self::TIPOS[$f['tipo']])) { $w[] = 'm.tipo = ?'; $p[] = $f['tipo']; }
-        if (!empty($f['q'])) {
-            $w[] = '(pr.nombre LIKE ? OR pr.codigo LIKE ?)';
-            $l = '%' . $f['q'] . '%'; $p[] = $l; $p[] = $l;
-        }
-        return $this->todos("
-            SELECT m.*, pr.nombre AS producto, pr.codigo, pr.unidad_medida,
-                   s.nombre AS sucursal, v.codigo_venta
-            FROM lf_inventario_movimientos m
-            LEFT JOIN productos pr  ON pr.id = m.producto_id
-            LEFT JOIN sucursales s  ON s.id = m.sucursal_id
-            LEFT JOIN ventas v      ON v.id = m.venta_id
-            WHERE " . implode(' AND ', $w) . "
-            ORDER BY m.creado_en DESC, m.id DESC
-            LIMIT " . max(1, min(1000, (int)($f['tope'] ?? 300))), $p);
-    }
-
-    // ════════════════════════════════════════════════════════
-    //  MOVER
-    // ════════════════════════════════════════════════════════
-
-    /**
-     * Lo que se lleva una venta. Corre DENTRO de la transacción de la
-     * venta: si algo falla aquí, la venta tampoco se guarda.
-     *
-     * Con «No dejar vender», si algún producto no alcanza no se descuenta
-     * nada y se dice cuáles. Con «Avisar», se descuenta aunque quede en
-     * negativo: la venta ya pasó, y el negativo dice que falta registrar
-     * una entrada.
-     *
-     * @param array $lineas [['producto_id', 'cantidad'], ...]
-     * @return array [producto_id => existencia que quedó]
-     */
-    public function descontarVenta($ventaId, array $lineas, $sucursalId = null)
-    {
-        if (!$this->activo()) return [];
-        $pide = [];
-        foreach ($lineas as $l) {
-            $id = (int)($l['producto_id'] ?? $l['id'] ?? 0);
-            if ($id > 0) $pide[$id] = ($pide[$id] ?? 0) + (float)($l['cantidad'] ?? 0);
-        }
-        $llevan = $this->llevan(array_keys($pide));
-        if (!$llevan) return [];
-        $suc = (int)($sucursalId ?: $this->sucursalActual());
-
-        if ($this->bloquea()) {
-            $faltan = [];
-            foreach ($llevan as $id => $nombre) {
-                $hay = (float)($this->existenciaDe($id, $suc, true) ?? 0);
-                if ($hay + 0.0005 < $pide[$id]) $faltan[] = $nombre . ' (quedan ' . self::num(max(0, $hay)) . ')';
-            }
-            if ($faltan) {
-                throw new \InvalidArgumentException('No alcanzan las existencias de ' . implode(', ', $faltan)
-                    . '. Quita esas piezas del ticket o registra la entrada en Inventario.');
-            }
-        }
-        $r = [];
-        foreach ($llevan as $id => $_) {
-            $r[$id] = $this->mover($id, $suc, -$pide[$id], 'venta', ['venta_id' => (int)$ventaId]);
-        }
-        return $r;
-    }
-
-    /**
-     * Regresa a las existencias lo que se llevó una venta (al cancelarla).
-     * Lee lo que de verdad se descontó, no las líneas de hoy: si el
-     * producto dejó de llevar inventario, igual vuelve lo que salió.
-     */
-    public function devolverVenta($ventaId, $nota = '')
-    {
-        $netos = $this->todos("
-            SELECT producto_id, sucursal_id, SUM(cantidad) AS neto
-            FROM lf_inventario_movimientos
-            WHERE venta_id = ? AND tipo IN ('venta','devolucion')
-            GROUP BY producto_id, sucursal_id", [(int)$ventaId]);
-        return $this->enTransaccion(function () use ($netos, $ventaId, $nota) {
-            $n = 0;
-            foreach ($netos as $f) {
-                if ((float)$f['neto'] < -0.0005) {
-                    $this->mover($f['producto_id'], $f['sucursal_id'], -(float)$f['neto'], 'devolucion',
-                                 ['venta_id' => (int)$ventaId, 'nota' => $nota ?: 'Venta cancelada']);
-                    $n++;
+        foreach (array_chunk(array_values($ids), 20) as $lote) {
+            $res = $this->llamar('GET', '/items?include_attributes=all&ids=' . implode(',', array_map('rawurlencode', $lote)), $token);
+            if (!is_array($res)) continue;
+            foreach ($res as $f) {
+                if ((int)($f['code'] ?? 0) === 200 && !empty($f['body']['id'])) {
+                    $r[(string)$f['body']['id']] = $f['body'];
                 }
             }
-            return $n;
-        });
+        }
+        return $r;
+    }
+
+    public function publicacion($token, $itemId)
+    {
+        return $this->llamar('GET', '/items/' . rawurlencode((string)$itemId) . '?include_attributes=all', $token);
     }
 
     /**
-     * Entrada, salida o conteo, desde la pantalla de Inventario.
+     * Cambia la existencia de una publicación.
      *
-     *   entrada  llegaron N piezas (de un proveedor, a un costo)
-     *   salida   se fueron N piezas sin venderse: dañadas, caducadas, uso
-     *            interno. Pide el motivo: es justo lo que luego se pregunta.
-     *   conteo   se contaron y hay N. Se mueve la diferencia; si cuadra,
-     *            queda anotado que se contó.
+     * CON VARIACIONES HAY UNA TRAMPA QUE BORRA COSAS
      *
-     * @return array ['existencia' => lo que quedó, 'cambio' => cuánto se movió]
+     * Para cambiar la existencia de una talla se manda la lista
+     * `variations`, y Mercado Libre interpreta esa lista como la lista
+     * COMPLETA: la variación que no venga, la elimina. Por eso aquí se
+     * pide la publicación tal como está AHORA (no como la guardamos al
+     * importar, que puede ser vieja) y se mandan todas sus variaciones: las
+     * que cambian con su cantidad nueva, las demás solo con su id.
+     *
+     * @param array $cantidades [variacion_id => cantidad]; 0 = sin variación
      */
-    public function registrar($tipo, $productoId, $sucursalId, $cantidad, array $d = [])
+    public function ponerExistencia($token, $itemId, array $cantidades)
     {
-        if (!in_array($tipo, ['entrada', 'salida', 'conteo', 'merma'], true)) {
-            throw new \InvalidArgumentException('Elige si es entrada, salida, merma o conteo.');
-        }
-        $cantidad = round((float)str_replace(',', '', (string)$cantidad), 3);
-        if ($tipo !== 'conteo' && $cantidad <= 0) throw new \InvalidArgumentException('Escribe cuántas piezas.');
-        if ($tipo === 'conteo' && $cantidad < 0)  throw new \InvalidArgumentException('Lo contado no puede ser negativo.');
-
-        $llevan = $this->llevan([(int)$productoId]);
-        if (!$llevan) throw new \InvalidArgumentException('Ese producto no lleva existencias. Márcalo en Productos.');
-        $suc = (int)$sucursalId;
-        if (!$this->uno("SELECT id FROM sucursales WHERE id = ? AND COALESCE(activo,1) = 1", [$suc])) {
-            throw new \InvalidArgumentException('Elige la sucursal.');
-        }
-        $nota = mb_substr(trim((string)($d['nota'] ?? '')), 0, 255);
-        if ($tipo === 'salida' && $nota === '') {
-            throw new \InvalidArgumentException('Escribe el motivo de la salida (dañado, caducado, uso interno…).');
-        }
-        if ($tipo === 'merma') {
-            $m = (string)($d['motivo'] ?? '');
-            if (!isset(self::MOTIVOS_MERMA[$m])) {
-                throw new \InvalidArgumentException('Elige por qué se perdió la mercancía.');
-            }
-            // El motivo va al principio de la nota para que la bitácora se
-            // pueda leer y agrupar sin una columna más.
-            $nota = self::MOTIVOS_MERMA[$m] . ($nota !== '' ? ' · ' . $nota : '');
+        $itemId = (string)$itemId;
+        if (isset($cantidades[0]) && count($cantidades) === 1) {
+            return $this->llamar('PUT', '/items/' . rawurlencode($itemId), $token,
+                                 ['available_quantity' => max(0, (int)$cantidades[0])]) !== null;
         }
 
-        $extra = ['nota' => $nota, 'almacen_id' => (int)($d['almacen_id'] ?? 0) ?: null];
-        if ($tipo === 'entrada') {
-            $costo = trim((string)($d['costo'] ?? ''));
-            if ($costo !== '') {
-                $costo = round((float)str_replace(['$', ','], '', $costo), 2);
-                if ($costo < 0) throw new \InvalidArgumentException('El costo no puede ser negativo.');
-                $extra['costo'] = $costo;
-            }
-            $prov = (int)($d['proveedor_id'] ?? 0);
-            if ($prov) {
-                $nom = $this->valor("SELECT nombre FROM proveedores WHERE id = ?", [$prov]);
-                if ($nom !== false && $nom !== null) { $extra['proveedor_id'] = $prov; $extra['proveedor'] = $nom; }
-            }
+        $actual = $this->llamar('GET', '/items/' . rawurlencode($itemId) . '?attributes=id,variations', $token);
+        if (!is_array($actual)) return false;
+        $vars = (array)($actual['variations'] ?? []);
+        if (!$vars) {
+            $this->ultimoError = 'La publicación ya no tiene variaciones en Mercado Libre. Vuelve a importar.';
+            return false;
         }
-
-        return $this->enTransaccion(function () use ($tipo, $productoId, $suc, $cantidad, $extra) {
-            if ($tipo === 'conteo') {
-                // Contra lo que hay EN ESE ALMACÉN, no en toda la sucursal:
-                // contar el piso no puede corregirse contra el total que
-                // incluye la bodega, o cada conteo del mostrador borraría
-                // lo que está arriba.
-                $alm = $this->almacenPara($suc, $extra['almacen_id'] ?? null);
-                $hay = (float)($this->enAlmacen($productoId, $alm, true) ?? 0);
-                $delta = round($cantidad - $hay, 3);
+        $lista = [];
+        $tocadas = 0;
+        foreach ($vars as $v) {
+            $vid = (string)($v['id'] ?? '');
+            if ($vid === '') continue;
+            if (array_key_exists($vid, $cantidades)) {
+                $lista[] = ['id' => (int)$vid, 'available_quantity' => max(0, (int)$cantidades[$vid])];
+                $tocadas++;
             } else {
-                $delta = $tipo === 'entrada' ? $cantidad : -$cantidad;
+                $lista[] = ['id' => (int)$vid];
             }
-            $queda = $this->mover($productoId, $suc, $delta, $tipo, $extra);
-            return ['existencia' => $queda, 'cambio' => $delta];
-        });
+        }
+        if (!$tocadas) {
+            $this->ultimoError = 'Las variaciones vinculadas ya no existen en Mercado Libre. Vuelve a importar.';
+            return false;
+        }
+        return $this->llamar('PUT', '/items/' . rawurlencode($itemId), $token, ['variations' => $lista]) !== null;
+    }
+
+    public function orden($token, $ordenId)
+    {
+        return $this->llamar('GET', '/orders/' . rawurlencode((string)$ordenId), $token);
     }
 
     /**
-     * Pasar piezas de una sucursal a otra. Son dos movimientos (sale de
-     * una, entra a la otra) dentro de la misma transacción: nunca queda
-     * la mitad. No se manda lo que no hay: el traspaso es físico.
-     *
-     * @return array ['existencia' => lo que quedó en el origen, 'destino' => lo que quedó allá]
+     * Las órdenes que cambiaron desde una fecha. Es la red de seguridad de
+     * los avisos: si uno no llegó (el servidor estaba caído, o en local no
+     * hay dirección pública), aquí se recupera.
      */
-    public function traspasar($productoId, $origenId, $destinoId, $cantidad, $nota = '')
+    public function ordenesDesde($token, $userId, $desde, $tope = 200)
     {
-        $alm = new Almacenes($this->db);
-        return $this->traspasarAlmacen(
-            $productoId,
-            (int)$alm->principal($origenId)['id'],
-            (int)$alm->principal($destinoId)['id'],
-            $cantidad, $nota);
-    }
-
-    /**
-     * Pasar piezas de un almacén a otro.
-     *
-     * El mismo código sirve para los dos casos que pidieron: del piso a
-     * la bodega de la misma tienda, y de una sucursal a otra. La
-     * diferencia es solo qué almacenes se eligen, y tratarlos igual evita
-     * tener dos rutinas que se van separando con el tiempo.
-     *
-     * Son dos movimientos —sale de uno, entra al otro— dentro de la misma
-     * transacción: nunca queda la mitad. Y no se manda lo que no hay: el
-     * traspaso es físico, alguien carga la caja.
-     *
-     * @return array ['existencia' => lo que quedó en el origen, 'destino' => lo que quedó allá]
-     */
-    public function traspasarAlmacen($productoId, $origenAlmacen, $destinoAlmacen, $cantidad, $nota = '')
-    {
-        $cantidad = round((float)str_replace(',', '', (string)$cantidad), 3);
-        if ($cantidad <= 0) throw new \InvalidArgumentException('Escribe cuántas piezas pasan.');
-        $origenAlmacen = (int)$origenAlmacen; $destinoAlmacen = (int)$destinoAlmacen;
-        if (!$origenAlmacen || !$destinoAlmacen) throw new \InvalidArgumentException('Elige de dónde y a dónde pasan.');
-        if ($origenAlmacen === $destinoAlmacen) {
-            throw new \InvalidArgumentException('El origen y el destino son el mismo almacén.');
+        $todas = [];
+        $iso = date('Y-m-d\TH:i:s.000P', strtotime((string)$desde));
+        for ($off = 0; $off < $tope; $off += 50) {
+            $q = '/orders/search?seller=' . rawurlencode((string)$userId)
+               . '&order.date_last_updated.from=' . rawurlencode($iso)
+               . '&sort=date_asc&limit=50&offset=' . $off;
+            $r = $this->llamar('GET', $q, $token);
+            if (!is_array($r)) break;
+            $lote = (array)($r['results'] ?? []);
+            foreach ($lote as $o) $todas[] = $o;
+            if (count($lote) < 50) break;
         }
-        if (!$this->llevan([(int)$productoId])) {
-            throw new \InvalidArgumentException('Ese producto no lleva existencias. Márcalo en Productos.');
-        }
-
-        $alm = new Almacenes($this->db);
-        $o = $alm->porId($origenAlmacen);
-        $d = $alm->porId($destinoAlmacen);
-        if (!$o || !$d) throw new \InvalidArgumentException('Elige los dos almacenes.');
-        if (!$o['activo'] || !$d['activo']) throw new \InvalidArgumentException('Uno de los almacenes está apagado.');
-
-        // «Piso» y «Bodega» se llaman igual en todas las tiendas, así que
-        // dentro de la misma sucursal basta el nombre; entre sucursales
-        // hay que decir de cuál, o la bitácora no se entiende.
-        $mismaSuc = (int)$o['sucursal_id'] === (int)$d['sucursal_id'];
-        $rot = function ($a) use ($mismaSuc, $alm) {
-            if ($mismaSuc) return $a['nombre'];
-            $s = $this->valor("SELECT nombre FROM sucursales WHERE id = ?", [(int)$a['sucursal_id']]);
-            return $a['nombre'] . ' de ' . ($s ?: 'otra sucursal');
-        };
-        $nota = mb_substr(trim((string)$nota), 0, 200);
-
-        return $this->enTransaccion(function () use ($productoId, $o, $d, $cantidad, $nota, $rot) {
-            $hay = (float)($this->enAlmacen($productoId, (int)$o['id'], true) ?? 0);
-            if ($hay + 0.0005 < $cantidad) {
-                throw new \InvalidArgumentException(
-                    'En ' . $rot($o) . ' solo hay ' . self::num(max(0, $hay)) . '.');
-            }
-            $sale  = $this->mover($productoId, (int)$o['sucursal_id'], -$cantidad, 'traspaso',
-                        ['almacen_id' => (int)$o['id'], 'almacen_destino_id' => (int)$d['id'],
-                         'nota' => 'A ' . $rot($d) . ($nota !== '' ? ' · ' . $nota : '')]);
-            $llega = $this->mover($productoId, (int)$d['sucursal_id'], $cantidad, 'traspaso',
-                        ['almacen_id' => (int)$d['id'], 'almacen_destino_id' => (int)$o['id'],
-                         'nota' => 'De ' . $rot($o) . ($nota !== '' ? ' · ' . $nota : '')]);
-            return ['existencia' => $sale, 'destino' => $llega, 'cambio' => -$cantidad];
-        });
-    }
-
-    /**
-     * Conteo general: se cuenta todo (o lo que se pudo) y se captura de una
-     * vez. Solo se mueven los renglones que traen número; el resto se
-     * queda como estaba. Todo o nada.
-     *
-     * @param array $contado [producto_id => lo contado]
-     * @return array ['contados' => n, 'diferencias' => n]
-     */
-    public function conteoGeneral($sucursalId, array $contado, $nota = '', $almacenId = null)
-    {
-        $suc = (int)$sucursalId;
-        if (!$this->uno("SELECT id FROM sucursales WHERE id = ? AND COALESCE(activo,1) = 1", [$suc])) {
-            throw new \InvalidArgumentException('Elige la sucursal.');
-        }
-        // Se cuenta UN almacén, no la sucursal entera.
-        //
-        // Antes esto comparaba lo contado contra el total de la sucursal.
-        // Con almacenes eso se volvió peligroso: contar 10 en el
-        // mostrador, con 38 arriba, se leía como «faltan 30» y dejaba el
-        // piso en −28. Lo que se cuenta es lo que se tiene enfrente.
-        $almacen = $this->almacenPara($suc, $almacenId);
-        $pide = [];
-        foreach ($contado as $id => $c) {
-            $c = trim(str_replace(',', '', (string)$c));
-            if ($c === '') continue;
-            if (!is_numeric($c) || (float)$c < 0) throw new \InvalidArgumentException('Lo contado debe ser un número de cero en adelante.');
-            $pide[(int)$id] = round((float)$c, 3);
-        }
-        if (!$pide) throw new \InvalidArgumentException('No capturaste ningún conteo.');
-        $llevan = $this->llevan(array_keys($pide));
-        $nota = mb_substr(trim((string)$nota), 0, 200);
-        return $this->enTransaccion(function () use ($pide, $llevan, $suc, $nota, $almacen) {
-            $n = 0; $dif = 0;
-            foreach ($pide as $id => $c) {
-                if (!isset($llevan[$id])) continue;
-                $hay = (float)($this->enAlmacen($id, $almacen, true) ?? 0);
-                $delta = round($c - $hay, 3);
-                $this->mover($id, $suc, $delta, 'conteo',
-                             ['almacen_id' => $almacen, 'nota' => $nota !== '' ? $nota : 'Conteo general']);
-                $n++;
-                if (abs($delta) >= 0.0005) $dif++;
-            }
-            return ['contados' => $n, 'diferencias' => $dif];
-        });
-    }
-
-    /**
-     * Lo de inventario del formulario de un producto: si lleva
-     * existencias, su unidad, el mínimo de cada sucursal y, la primera
-     * vez, la existencia inicial.
-     */
-    public function guardarProducto($productoId, array $d)
-    {
-        $productoId = (int)$productoId;
-        $lleva  = !empty($d['lleva_inventario']) ? 1 : 0;
-        $unidad = (string)($d['unidad_medida'] ?? '');
-        if (!isset(self::UNIDADES[$unidad])) $unidad = null;   // se respeta la que ya tenía
-
-        return $this->enTransaccion(function () use ($productoId, $lleva, $unidad, $d) {
-            $this->db->prepare("UPDATE productos SET lleva_inventario = ?"
-                               . ($unidad ? ", unidad_medida = ?" : "") . " WHERE id = ?")
-                     ->execute($unidad ? [$lleva, $unidad, $productoId] : [$lleva, $productoId]);
-            if (!$lleva) return 0;
-
-            $n = 0;
-            $minimos  = (array)($d['minimo'] ?? []);
-            $iniciales = (array)($d['inicial'] ?? []);
-            foreach ($this->sucursales() as $s) {
-                $suc = (int)$s['id'];
-                if (isset($minimos[$suc]) && trim((string)$minimos[$suc]) !== '') {
-                    $min = max(0, round((float)$minimos[$suc], 3));
-                    $hay = $this->existenciaDe($productoId, $suc, true);
-                    if ($hay === null) {
-                        $this->db->prepare("INSERT INTO producto_sucursal (producto_id, sucursal_id, stock, stock_minimo, activo)
-                                            VALUES (?,?,0,?,1)")->execute([$productoId, $suc, $min]);
-                    } else {
-                        $this->db->prepare("UPDATE producto_sucursal SET stock_minimo = ? WHERE producto_id = ? AND sucursal_id = ?")
-                                 ->execute([$min, $productoId, $suc]);
-                    }
-                }
-                $ini = round((float)($iniciales[$suc] ?? 0), 3);
-                if ($ini > 0 && !$this->tieneMovimientos($productoId, $suc)
-                    && abs((float)($this->existenciaDe($productoId, $suc) ?? 0)) < 0.0005) {
-                    $this->mover($productoId, $suc, $ini, 'inicial');
-                    $n++;
-                }
-            }
-            // Cambiar el mínimo cambia qué productos «quedan pocos», y el
-            // aviso de arriba está guardado unos minutos. Sin esto, poner
-            // un mínimo nuevo no se notaba hasta tres minutos después y
-            // parecía que la casilla no había servido de nada.
-            Alertas::olvidar();
-            return $n;
-        });
-    }
-
-    /**
-     * Mueve la existencia y deja el rastro. NO abre transacción: corre en
-     * la de quien llama (la venta, o enTransaccion()).
-     *
-     * @return float lo que quedó
-     */
-    private function mover($productoId, $sucursalId, $delta, $tipo, array $extra = [])
-    {
-        $productoId = (int)$productoId; $sucursalId = (int)$sucursalId;
-        if ($sucursalId <= 0) {
-            throw new \InvalidArgumentException('No hay sucursal a la cual cargarle la existencia. '
-                . 'Da de alta una en Ajustes → Sucursales.');
-        }
-
-        // ── En qué almacén ──
-        // Sin almacén se usa el principal (Piso). Eso hace que todo lo
-        // que ya existía —ventas, devoluciones, compras— siga moviendo lo
-        // mismo que antes sin tocarle una línea: la pieza que se llevó el
-        // cliente salió del piso, no de la bodega.
-        $almacen = $this->almacenPara($sucursalId, $extra['almacen_id'] ?? null);
-
-        $hay   = $this->enAlmacen($productoId, $almacen, true);
-        $queda = round(($hay ?? 0) + $delta, 3);
-        if ($hay === null) {
-            $this->db->prepare("INSERT INTO lf_producto_almacen (producto_id, almacen_id, stock, stock_minimo)
-                                VALUES (?,?,?,0)")->execute([$productoId, $almacen, $queda]);
-        } else {
-            $this->db->prepare("UPDATE lf_producto_almacen SET stock = ? WHERE producto_id = ? AND almacen_id = ?")
-                     ->execute([$queda, $productoId, $almacen]);
-        }
-
-        // ── Y las dos sumas de arriba ──
-        // `producto_sucursal` deja de ser la verdad y pasa a ser la suma
-        // de los almacenes de esa sucursal. No se retira porque medio
-        // sistema la lee —Caja, Productos, los informes— y cambiarlo todo
-        // de golpe es cómo se rompe una venta un viernes. Se recalcula de
-        // los almacenes, no se le suma el delta, para que una fila que
-        // alguien tocó a mano se corrija sola en el siguiente movimiento.
-        $sucTotal = $this->sumaDeSucursal($productoId, $sucursalId);
-        if ($this->valor("SELECT 1 FROM producto_sucursal WHERE producto_id = ? AND sucursal_id = ?",
-                         [$productoId, $sucursalId])) {
-            $this->db->prepare("UPDATE producto_sucursal SET stock = ? WHERE producto_id = ? AND sucursal_id = ?")
-                     ->execute([$sucTotal, $productoId, $sucursalId]);
-        } else {
-            $this->db->prepare("INSERT INTO producto_sucursal (producto_id, sucursal_id, stock, stock_minimo, activo)
-                                VALUES (?,?,?,0,1)")->execute([$productoId, $sucursalId, $sucTotal]);
-        }
-
-        $this->db->prepare("
-            INSERT INTO lf_inventario_movimientos
-                (producto_id, sucursal_id, almacen_id, almacen_destino_id, tipo, cantidad, existencia,
-                 costo, proveedor_id, proveedor, nota, venta_id, usuario_id, usuario_nombre, creado_en)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
-            ->execute([$productoId, $sucursalId, $almacen, $extra['almacen_destino_id'] ?? null,
-                       $tipo, round($delta, 3), $queda,
-                       $extra['costo'] ?? null, $extra['proveedor_id'] ?? null, $extra['proveedor'] ?? null,
-                       ($extra['nota'] ?? '') !== '' ? $extra['nota'] : null, $extra['venta_id'] ?? null,
-                       $_SESSION['usuario_id'] ?? null, $_SESSION['usuario_nombre'] ?? null]);
-
-        // La suma de todas las sucursales, para quien lea productos.stock.
-        $this->db->prepare("UPDATE productos SET stock =
-                                (SELECT COALESCE(SUM(stock),0) FROM producto_sucursal WHERE producto_id = ?)
-                            WHERE id = ?")->execute([$productoId, $productoId]);
-
-        // El aviso de arriba está guardado unos minutos; si acaba de
-        // entrar mercancía, el aviso de «agotado» tiene que irse ya y no
-        // en tres minutos. Olvidarlo aquí lo hace exacto sin consultar en
-        // cada página.
-        Alertas::olvidar($sucursalId);
-
-        return $queda;
-    }
-
-    /** El almacén al que cargar un movimiento: el pedido, o el principal. */
-    private function almacenPara($sucursalId, $almacenId = null)
-    {
-        $almacenId = (int)$almacenId;
-        if ($almacenId) {
-            $a = $this->uno("SELECT id, sucursal_id, activo FROM lf_almacenes WHERE id = ?", [$almacenId]);
-            if (!$a) throw new \InvalidArgumentException('Ese almacén no existe.');
-            if ((int)$a['sucursal_id'] !== (int)$sucursalId) {
-                throw new \InvalidArgumentException('Ese almacén es de otra sucursal.');
-            }
-            if (!$a['activo']) throw new \InvalidArgumentException('Ese almacén está apagado.');
-            return $almacenId;
-        }
-        return (int)(new Almacenes($this->db))->principal($sucursalId)['id'];
-    }
-
-    /** La existencia en UN almacén; null si no tiene fila todavía. */
-    private function enAlmacen($productoId, $almacenId, $paraCambiar = false)
-    {
-        // FOR UPDATE: dos cajas vendiendo la última pieza al mismo tiempo
-        // no deben leer las dos "queda 1".
-        $bloqueo = ($paraCambiar && $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') ? ' FOR UPDATE' : '';
-        $v = $this->valor("SELECT stock FROM lf_producto_almacen WHERE producto_id = ? AND almacen_id = ?" . $bloqueo,
-                          [(int)$productoId, (int)$almacenId]);
-        return ($v === false || $v === null) ? null : (float)$v;
-    }
-
-    /** Lo que hay de un producto en toda una sucursal, sumando sus almacenes. */
-    private function sumaDeSucursal($productoId, $sucursalId)
-    {
-        return round((float)$this->valor("
-            SELECT COALESCE(SUM(pa.stock),0)
-              FROM lf_producto_almacen pa
-              JOIN lf_almacenes a ON a.id = pa.almacen_id
-             WHERE pa.producto_id = ? AND a.sucursal_id = ?", [(int)$productoId, (int)$sucursalId]), 3);
+        return $todas;
     }
 
     // ════════════════════════════════════════════════════════
-    //  AYUDANTES
+    //  PUBLICAR DESDE LIBERTYFIN
     // ════════════════════════════════════════════════════════
 
-    /** "5", "2.5", "0.125": sin ceros de más. */
-    public static function num($n)
-    {
-        return rtrim(rtrim(number_format((float)$n, 3, '.', ','), '0'), '.');
-    }
+    const SITIOS  = ['MX' => 'MLM', 'AR' => 'MLA', 'BR' => 'MLB', 'CO' => 'MCO', 'CL' => 'MLC', 'PE' => 'MPE', 'UY' => 'MLU'];
+    const MONEDAS = ['MLM' => 'MXN', 'MLA' => 'ARS', 'MLB' => 'BRL', 'MCO' => 'COP', 'MLC' => 'CLP', 'MPE' => 'PEN', 'MLU' => 'UYU'];
 
-    /** "5 pza", "2.5 kg". */
-    public static function conUnidad($n, $unidad)
-    {
-        $u = self::abrev($unidad);
-        return self::num($n) . ($u !== '' ? ' ' . $u : '');
-    }
+    /** El sitio de Mercado Libre del país configurado: MLM para México. */
+    public static function sitio()  { return self::SITIOS[self::pais()]; }
+    public static function moneda() { return self::MONEDAS[self::sitio()]; }
 
-    /** "pza", "kg"… La del sistema anterior puede venir como «Pieza». */
-    public static function abrev($unidad)
+    /**
+     * Las categorías que Mercado Libre sugiere para un título.
+     * @return array [{category_id, category_name, domain_name}] (vacío si no sugiere nada)
+     */
+    public function sugerirCategorias($token, $titulo, $tope = 6)
     {
-        return self::UNIDADES[strtolower(trim((string)$unidad))][1] ?? trim((string)$unidad);
-    }
-
-    /** De estos productos, los que llevan inventario: [id => nombre]. */
-    private function llevan(array $ids)
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
-        if (!$ids) return [];
-        $m = implode(',', array_fill(0, count($ids), '?'));
-        $r = [];
-        foreach ($this->todos("SELECT id, nombre FROM productos WHERE lleva_inventario = 1 AND id IN ($m) ORDER BY id", $ids) as $f) {
-            $r[(int)$f['id']] = $f['nombre'];
+        $r = $this->llamar('GET', '/sites/' . self::sitio() . '/domain_discovery/search?limit=' . (int)$tope
+                           . '&q=' . rawurlencode((string)$titulo), $token);
+        $lista = [];
+        foreach ((array)$r as $s) {
+            if (!empty($s['category_id'])) $lista[(string)$s['category_id']] = $s;
         }
-        return $r;
+        return array_values($lista);
     }
 
-    /** La existencia de un producto en una sucursal; null si no tiene fila. */
-    private function existenciaDe($productoId, $sucursalId, $paraCambiar = false)
+    /** La categoría: su ruta (path_from_root) y si admite publicar ahí (settings.listing_allowed). */
+    public function categoria($token, $categoriaId)
     {
-        // FOR UPDATE: dos cajas vendiendo la última pieza al mismo tiempo
-        // no deben leer las dos "queda 1".
-        $bloqueo = ($paraCambiar && $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') ? ' FOR UPDATE' : '';
-        $v = $this->valor("SELECT stock FROM producto_sucursal WHERE producto_id = ? AND sucursal_id = ?" . $bloqueo,
-                          [(int)$productoId, (int)$sucursalId]);
-        return ($v === false || $v === null) ? null : (float)$v;
+        return $this->llamar('GET', '/categories/' . rawurlencode((string)$categoriaId), $token);
     }
 
-    private function tieneMovimientos($productoId, $sucursalId)
+    /** La ficha técnica que pide la categoría. */
+    public function atributosDeCategoria($token, $categoriaId)
     {
-        return (bool)$this->valor("SELECT 1 FROM lf_inventario_movimientos WHERE producto_id = ? AND sucursal_id = ? LIMIT 1",
-                                  [(int)$productoId, (int)$sucursalId]);
+        return $this->llamar('GET', '/categories/' . rawurlencode((string)$categoriaId) . '/attributes', $token);
     }
 
-    /** Corre en la transacción que ya haya, o abre una. */
-    private function enTransaccion(callable $f)
+    /**
+     * Sube una foto desde un archivo del servidor. Se sube el archivo y no
+     * se manda una dirección: así sirve aunque las imágenes de LibertyFin
+     * no se puedan ver sin iniciar sesión, o el servidor sea local.
+     * @return string el id de la foto en Mercado Libre, o '' si no se pudo
+     */
+    public function subirFoto($token, $rutaArchivo, $mime = 'image/jpeg')
     {
-        if ($this->db->inTransaction()) return $f();
-        $this->db->beginTransaction();
-        try {
-            $r = $f();
-            $this->db->commit();
-            return $r;
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
+        if (!is_file($rutaArchivo)) { $this->ultimoError = 'No se encontró la imagen.'; return ''; }
+        // Mercado Libre valida por la EXTENSIÓN del nombre: los archivos
+        // recién subidos tienen nombre temporal (php1A2B.tmp) y los rechaza.
+        // El nombre se arma con el tipo real de la imagen.
+        $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+        $nombre = 'foto-' . substr(md5($rutaArchivo), 0, 8) . '.' . ($ext[$mime] ?? 'jpg');
+        $r = $this->llamar('POST', '/pictures/items/upload', $token,
+                           ['file' => new \CURLFile($rutaArchivo, $mime, $nombre)], 'multipart');
+        return is_array($r) && !empty($r['id']) ? (string)$r['id'] : '';
+    }
+
+    public function crearPublicacion($token, array $cuerpo)
+    {
+        return $this->llamar('POST', '/items', $token, $cuerpo);
+    }
+
+    /** La descripción va aparte: Mercado Libre no la acepta dentro de la publicación. */
+    public function ponerDescripcion($token, $itemId, $texto)
+    {
+        return $this->llamar('POST', '/items/' . rawurlencode((string)$itemId) . '/description', $token,
+                             ['plain_text' => (string)$texto]) !== null;
+    }
+
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * Crea un usuario de PRUEBA de Mercado Libre (para bin/meli-usuario-prueba.php).
+     * Devuelve {id, nickname, password, site_status} o null.
+     * Solo opera con otros usuarios de prueba; máximo 10 por cuenta.
+     */
+    public function crearUsuarioPrueba($token, $siteId = 'MLM')
+    {
+        return $this->llamar('POST', '/users/test_user', $token, ['site_id' => (string)$siteId]);
+    }
+
+    /** Quitar el permiso de LibertyFin en la cuenta. Si falla no importa: las llaves se borran igual. */
+    public function revocar($token, $userId)
+    {
+        return $this->llamar('DELETE', '/users/' . rawurlencode((string)$userId) . '/applications/'
+                             . rawurlencode(self::appId()), $token) !== null;
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  CIFRAR LAS LLAVES
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * Las llaves de la cuenta van cifradas en la base.
+     *
+     * Un respaldo de la base, un phpMyAdmin compartido o un volcado
+     * mandado por correo no deben bastar para vender, pausar o cambiar
+     * precios en nombre de la empresa. La llave de cifrado vive en
+     * config/integraciones.php ('llave_cifrado'), fuera de la base; si no
+     * está, se deriva del secreto de la aplicación.
+     *
+     * Cambiar cualquiera de las dos deja las llaves guardadas ilegibles:
+     * las empresas tendrán que volver a conectar. No se pierde nada más.
+     */
+    public static function cifrar($texto)
+    {
+        $texto = (string)$texto;
+        if ($texto === '') return '';
+        $iv = random_bytes(12);
+        $tag = '';
+        $ct = openssl_encrypt($texto, 'aes-256-gcm', self::llave(), OPENSSL_RAW_DATA, $iv, $tag);
+        if ($ct === false) throw new \RuntimeException('No se pudo cifrar la llave de Mercado Libre.');
+        return 'v1:' . base64_encode($iv . $tag . $ct);
+    }
+
+    public static function descifrar($guardado)
+    {
+        $guardado = (string)$guardado;
+        if (strncmp($guardado, 'v1:', 3) !== 0) return '';
+        $b = base64_decode(substr($guardado, 3), true);
+        if ($b === false || strlen($b) < 29) return '';
+        $t = openssl_decrypt(substr($b, 28), 'aes-256-gcm', self::llave(), OPENSSL_RAW_DATA,
+                             substr($b, 0, 12), substr($b, 12, 16));
+        return $t === false ? '' : $t;
+    }
+
+    private static function llave()
+    {
+        $c = self::config();
+        $base = trim((string)($c['llave_cifrado'] ?? '')) ?: trim((string)($c['secreto'] ?? ''));
+        if ($base === '') throw new \RuntimeException('Falta la configuración de Mercado Libre.');
+        return hash('sha256', 'libertyfin|meli|' . $base, true);
+    }
+
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * Una llamada. Devuelve el JSON como arreglo, o null y el motivo en error().
+     *
+     * Mercado Libre sí usa los códigos HTTP como se debe: 2xx es éxito y
+     * lo demás trae {message, error, cause}. Lo que hay que cuidar es el
+     * 429 (demasiadas peticiones), que aquí se reintenta una vez.
+     */
+    private function llamar($verbo, $ruta, $token, $cuerpo = null, $formulario = false)
+    {
+        $this->ultimoError = '';
+        $this->ultimoHttp  = 0;
+
+        for ($intento = 1; $intento <= 2; $intento++) {
+            $cab = ['Accept: application/json'];
+            if ($token !== null && $token !== '') $cab[] = 'Authorization: Bearer ' . $token;
+
+            $op = [
+                CURLOPT_CUSTOMREQUEST  => $verbo,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => (int)(self::config()['timeout'] ?? 25),
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+            ];
+            if ($cuerpo !== null) {
+                if ($formulario === 'multipart') {
+                    // curl arma el multipart y su Content-Type con el límite.
+                    $op[CURLOPT_POSTFIELDS] = $cuerpo;
+                } elseif ($formulario) {
+                    $cab[] = 'Content-Type: application/x-www-form-urlencoded';
+                    $op[CURLOPT_POSTFIELDS] = http_build_query($cuerpo);
+                } else {
+                    $cab[] = 'Content-Type: application/json';
+                    $op[CURLOPT_POSTFIELDS] = json_encode($cuerpo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                }
+            }
+            $op[CURLOPT_HTTPHEADER] = $cab;
+
+            // Nunca al espía: ni el token ni el secreto de la aplicación.
+            $this->ver('>>>', $verbo . ' ' . $ruta . ($cuerpo !== null && !$formulario ? ' ' . $op[CURLOPT_POSTFIELDS] : ''));
+
+            $ch = curl_init(self::API . $ruta);
+            curl_setopt_array($ch, $op);
+            $res  = curl_exec($ch);
+            $err  = curl_error($ch);
+            $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $this->ultimoHttp = $http;
+
+            if ($res === false) {
+                $this->ultimoError = 'No se pudo conectar con Mercado Libre: ' . ($err ?: 'sin detalle');
+                return null;
+            }
+            $this->ver('<<<', 'HTTP ' . $http . ' ' . mb_substr((string)$res, 0, 800));
+
+            if ($http === 429 && $intento === 1) { usleep(1500000); continue; }
+
+            $j = json_decode((string)$res, true);
+            if ($http >= 200 && $http < 300) {
+                // Un DELETE o un PUT pueden contestar sin cuerpo.
+                return is_array($j) ? $j : [];
+            }
+            $this->ultimoError = self::mensajeDeError(is_array($j) ? $j : [], $http);
+            return null;
         }
+        return null;
     }
 
-    private function todos($sql, array $p = [])
+    private static function mensajeDeError(array $j, $http)
     {
-        $st = $this->db->prepare($sql);
-        $st->execute($p);
-        return $st->fetchAll(PDO::FETCH_ASSOC);
+        $msg = trim((string)($j['message'] ?? ''));
+        $cod = trim((string)($j['error'] ?? ''));
+        $causas = [];
+        foreach ((array)($j['cause'] ?? []) as $c) {
+            if (is_array($c) && !empty($c['message'])) $causas[] = (string)$c['message'];
+            elseif (is_string($c) && $c !== '') $causas[] = $c;
+        }
+        $t = strtolower($msg . ' ' . $cod . ' ' . implode(' ', $causas));
+
+        if (strpos($t, 'invalid_grant') !== false) {
+            return 'La autorización de Mercado Libre ya no vale (invalid_grant). Hay que volver a conectar la cuenta.';
+        }
+        if ($http === 401 || strpos($t, 'invalid_token') !== false || strpos($t, 'invalid access token') !== false) {
+            return 'Mercado Libre no aceptó la llave de la cuenta (invalid_token).';
+        }
+        if (strpos($t, 'fulfillment') !== false) {
+            return 'Esa publicación está en Mercado Libre Full: la existencia la lleva Mercado Libre, no se puede cambiar desde aquí.';
+        }
+        if ($http === 403) {
+            return 'Mercado Libre no deja hacer eso con esta cuenta (403). '
+                 . ($msg !== '' ? $msg : 'Revisa que la aplicación tenga permisos de lectura y escritura.');
+        }
+        $txt = $msg !== '' ? $msg : ($cod !== '' ? $cod : 'Mercado Libre rechazó la petición');
+        if ($causas) $txt .= ' · ' . implode(' · ', array_unique($causas));
+        return $txt . ' (HTTP ' . $http . ')';
     }
 
-    private function uno($sql, array $p = [])
+    private function ver($quien, $que)
     {
-        $st = $this->db->prepare($sql);
-        $st->execute($p);
-        return $st->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    private function valor($sql, array $p = [])
-    {
-        $st = $this->db->prepare($sql);
-        $st->execute($p);
-        return $st->fetchColumn();
+        if ($this->espia) call_user_func($this->espia, $quien, (string)$que);
     }
 }
