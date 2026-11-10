@@ -144,6 +144,9 @@ final class Permisos
         // de vendedor de la empresa entera, eso es del administrador.
         'ver.mercadolibre'    => ['admin','inventario'],
         'editar.mercadolibre' => ['admin','inventario'],
+        // Tienda Nube: igual que Mercado Libre.
+        'ver.tiendanube'      => ['admin','inventario'],
+        'editar.tiendanube'   => ['admin','inventario'],
         'ver.agenda'          => ['admin','cajero'],
         'editar.agenda'       => ['admin','cajero'],
         'editar.gastos'    => ['admin','inventario'],

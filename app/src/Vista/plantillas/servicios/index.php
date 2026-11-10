@@ -384,6 +384,20 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
             <?= W::icono('bolsa','14px') ?> Publicar en Mercado Libre</a>
         <?php endif; ?>
       <?php endif; ?>
+      <?php /* Tienda Nube: igual, con su módulo, permiso y tienda conectada (ServiciosControlador::tnDe). */
+      if ($e && !empty($tn)): ?>
+        <?php if (!empty($tn['publicado'])): ?>
+          <?php if (!empty($tn['publicado']['permalink'])): ?>
+            <a class="lf-link" href="<?= P::e($tn['publicado']['permalink']) ?>" target="_blank" rel="noopener">
+              Ver en Tienda Nube ↗</a>
+          <?php else: ?>
+            <span class="lf-link">En Tienda Nube: #<?= P::e($tn['publicado']['producto_tn']) ?></span>
+          <?php endif; ?>
+        <?php elseif (!empty($e['lleva_inventario'])): ?>
+          <a class="btn btn-secondary" href="/tiendanube/publicar?producto=<?= (int)$e['id'] ?>">
+            <?= W::icono('bolsa','14px') ?> Publicar en Tienda Nube</a>
+        <?php endif; ?>
+      <?php endif; ?>
     </div>
     <p style="width:100%;font-size:11.5px;color:var(--lf-tinta-4);margin:0">
       Escribe la utilidad y el precio se calcula solo, o al revés. El costo se resta antes de calcular

@@ -469,4 +469,54 @@ return [
         'pkce'    => true,
         'timeout' => 25,
     ],
+
+    // ─────────────────────────────────────────────────────────────
+    //  TIENDA NUBE
+    // ─────────────────────────────────────────────────────────────
+    //
+    //  AQUÍ VA LA APLICACIÓN, NO LAS TIENDAS. Igual que Mercado Libre:
+    //  cada EMPRESA conecta su propia tienda desde el menú Tienda Nube →
+    //  «Conectar», y su llave se guarda cifrada en la base de su empresa.
+    //
+    //  CÓMO SE CREA LA APLICACIÓN
+    //
+    //  https://partners.tiendanube.com → Aplicaciones → Crear aplicación.
+    //
+    //    · URL de redirección después de la instalación:
+    //        https://TU-DOMINIO/tiendanube/retorno
+    //    · Permisos (scopes): read_products, write_products,
+    //      read_orders, read_customers (para el nombre del comprador).
+    //    · Webhooks obligatorios de privacidad (store/redact,
+    //      customers/redact, customers/data_request): apúntalos a
+    //        https://TU-DOMINIO/tiendanube/aviso
+    //      LibertyFin no guarda datos de compradores, solo contesta 200.
+    //
+    //  Los avisos de órdenes y productos NO se configuran en el portal:
+    //  LibertyFin los da de alta en cada tienda al conectarla. Tienda Nube
+    //  solo los acepta en una dirección pública con https.
+    //
+    //  Al guardar te da el App ID y el Client Secret: van abajo.
+    //
+    //  Para revisar que quedó, y para la tarea que sincroniza cada rato:
+    //    php app/bin/tn-sincronizar.php --revisar
+    //
+    'tiendanube' => [
+        'activo'   => false,
+        'app_id'   => '',   // App ID (client_id)
+        'secreto'  => '',   // Client Secret: también firma los avisos
+        // Tienda Nube rechaza toda llamada sin un contacto en el
+        // User-Agent: un correo o una página de contacto tuya.
+        'contacto' => '',   // p.ej. soporte@tu-dominio.com
+
+        // La dirección pública del sistema, sin / al final. Vacío = la del
+        // navegador. Ponla si entras por una dirección distinta a la
+        // pública (IP, otro dominio): es a donde se mandan los avisos.
+        'dominio'  => '',   // https://TU-DOMINIO
+
+        // Con qué se cifran las llaves de cada tienda. Vacío = se deriva
+        // del `secreto`. Cambiarla obliga a reconectar todas las tiendas.
+        'llave_cifrado' => '',
+
+        'timeout'  => 25,
+    ],
 ];

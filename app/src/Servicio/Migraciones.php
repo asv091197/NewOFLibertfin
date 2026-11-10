@@ -30,7 +30,7 @@ use PDO;
 final class Migraciones
 {
     /** Súbelo al agregar una migración nueva. */
-    const VERSION = 30;
+    const VERSION = 31;
 
     /**
      * La versión vive en `lf_ajustes`, no en `sistema_config`.
@@ -1636,6 +1636,85 @@ final class Migraciones
         }
     }
 
+    /**
+     * 31 · Tienda Nube: la tienda en línea de la empresa, cada variante de
+     * sus productos vinculada a un producto, y las órdenes que ya movieron
+     * existencias. Mismo diseño que la 30 (Mercado Libre).
+     *
+     * La llave de la tienda va cifrada (TiendaNube::cifrar) y no caduca, por
+     * eso no hay refresh_token ni expira_en. `stock_tn` NULL = la variante
+     * no lleva control de existencias en Tienda Nube («sin límite»).
+     */
+    private static function v31(PDO $db)
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_tn_cuenta (
+                id                 TINYINT NOT NULL PRIMARY KEY,
+                store_id           VARCHAR(20)  NULL DEFAULT NULL,
+                nombre             VARCHAR(120) NULL DEFAULT NULL,
+                url                VARCHAR(255) NULL DEFAULT NULL,
+                idioma             VARCHAR(5)   NOT NULL DEFAULT 'es',
+                moneda             VARCHAR(3)   NULL DEFAULT NULL,
+                access_token       TEXT NULL,
+                estado             VARCHAR(20) NOT NULL DEFAULT 'desconectada',
+                sucursal_id        INT NULL DEFAULT NULL,
+                reserva            DECIMAL(12,3) NOT NULL DEFAULT 0,
+                enviar_existencias TINYINT(1) NOT NULL DEFAULT 0,
+                descontar_ventas   TINYINT(1) NOT NULL DEFAULT 1,
+                avisos_ok          TINYINT(1) NOT NULL DEFAULT 0,
+                avisos_nota        VARCHAR(255) NULL DEFAULT NULL,
+                conectado_por      VARCHAR(100) NULL DEFAULT NULL,
+                conectado_en       DATETIME NULL DEFAULT NULL,
+                actualizado_en     DATETIME NULL DEFAULT NULL,
+                sincronizado_en    DATETIME NULL DEFAULT NULL,
+                ordenes_desde      DATETIME NULL DEFAULT NULL,
+                ultimo_error       VARCHAR(255) NULL DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_tn_productos (
+                id             INT AUTO_INCREMENT PRIMARY KEY,
+                producto_tn    VARCHAR(20) NOT NULL,
+                variante_tn    VARCHAR(20) NOT NULL,
+                titulo         VARCHAR(255) NULL DEFAULT NULL,
+                variante       VARCHAR(160) NULL DEFAULT NULL,
+                sku            VARCHAR(100) NULL DEFAULT NULL,
+                estado_tn      VARCHAR(20)  NULL DEFAULT NULL,
+                permalink      VARCHAR(255) NULL DEFAULT NULL,
+                imagen         VARCHAR(255) NULL DEFAULT NULL,
+                precio         DECIMAL(12,2) NOT NULL DEFAULT 0,
+                stock_tn       INT NULL DEFAULT NULL,
+                producto_id    INT NULL DEFAULT NULL,
+                vinculo        VARCHAR(10) NULL DEFAULT NULL,
+                pendiente      TINYINT(1) NOT NULL DEFAULT 0,
+                enviado_stock  INT NULL DEFAULT NULL,
+                enviado_en     DATETIME NULL DEFAULT NULL,
+                error          VARCHAR(255) NULL DEFAULT NULL,
+                actualizado_en DATETIME NULL DEFAULT NULL,
+                UNIQUE KEY ux_tp_variante (variante_tn),
+                KEY ix_tp_producto_tn (producto_tn),
+                KEY ix_tp_producto (producto_id),
+                KEY ix_tp_pendiente (pendiente),
+                KEY ix_tp_sku (sku)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_tn_ordenes (
+                orden_id       VARCHAR(24) NOT NULL PRIMARY KEY,
+                numero         VARCHAR(20) NULL DEFAULT NULL,
+                estado         VARCHAR(20) NOT NULL DEFAULT 'nueva',
+                estado_tn      VARCHAR(40) NULL DEFAULT NULL,
+                comprador      VARCHAR(120) NULL DEFAULT NULL,
+                total          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                fecha_tn       DATETIME NULL DEFAULT NULL,
+                aplicado       TEXT NULL,
+                nota           VARCHAR(255) NULL DEFAULT NULL,
+                creado_en      DATETIME NOT NULL,
+                actualizado_en DATETIME NULL DEFAULT NULL,
+                KEY ix_to_fecha (fecha_tn)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
     /** Lo que hace cada versión, para mostrarlo en Mantenimiento. */
     const DESCRIPCIONES = [
         1 => 'Tabla de ajustes propia (lf_ajustes)',
@@ -1667,5 +1746,6 @@ final class Migraciones
         28 => 'Envíos con Envia.com: dirección de salida por sucursal y guías con rastreo ligadas a la venta',
         29 => 'Capturas de entrada y salida con pistola de código de barras, que se pueden pausar y retomar',
         30 => 'Mercado Libre: cuenta de vendedor por empresa, publicaciones vinculadas a productos y órdenes que descuentan existencias',
+        31 => 'Tienda Nube: tienda en línea por empresa, variantes vinculadas a productos y órdenes que descuentan existencias',
     ];
 }

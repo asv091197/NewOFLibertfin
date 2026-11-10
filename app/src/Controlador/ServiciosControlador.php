@@ -49,6 +49,7 @@ final class ServiciosControlador
             // sesiones de qué servicio (Paquetes).
             'modProducto' => $this->modProducto($db),
             'meli'      => $this->meliDe($db, $editar),
+            'tn'        => $this->tnDe($db, $editar),
         ]);
         unset($_SESSION['lf_aviso']);
     }
@@ -67,6 +68,22 @@ final class ServiciosControlador
             $srv = new \LibertyFin\Servicio\MeliInventario($db);
             if (!$srv->conectada()) return null;
             $ya = (new \LibertyFin\Servicio\MeliPublicar($db, $srv))->yaPublicado($productoId);
+            return ['publicado' => $ya];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Igual que meliDe(), para el botón «Publicar en Tienda Nube». */
+    private function tnDe($db, $productoId)
+    {
+        if (!$productoId) return null;
+        try {
+            if (!\LibertyFin\Servicio\Modulos::deSesion()->activo('tiendanube')) return null;
+            if (!\LibertyFin\Dominio\Permisos::puede('editar.tiendanube')) return null;
+            $srv = new \LibertyFin\Servicio\TnInventario($db);
+            if (!$srv->conectada()) return null;
+            $ya = (new \LibertyFin\Servicio\TnPublicar($db, $srv))->yaPublicado($productoId);
             return ['publicado' => $ya];
         } catch (\Throwable $e) {
             return null;

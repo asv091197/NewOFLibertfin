@@ -292,6 +292,21 @@ $r->post('/mercadolibre/vincular',       ['LibertyFin\Controlador\MercadoLibreCo
 $r->post('/mercadolibre/sincronizar',    ['LibertyFin\Controlador\MercadoLibreControlador', 'sincronizar']);
 $r->get('/mercadolibre/publicar',        ['LibertyFin\Controlador\MercadoLibreControlador', 'publicar']);
 $r->post('/mercadolibre/publicar',       ['LibertyFin\Controlador\MercadoLibreControlador', 'publicarGuardar']);
+// Tienda Nube: igual que Mercado Libre. El aviso lo llama un servidor suyo,
+// sin sesión, y viene FIRMADO con el secreto de la aplicación (ver AvisosTnControlador).
+$r->post('/tiendanube/aviso',            ['LibertyFin\Controlador\AvisosTnControlador', 'recibir']);
+$r->get('/tiendanube',                   ['LibertyFin\Controlador\TiendaNubeControlador', 'index']);
+$r->post('/tiendanube/conectar',         ['LibertyFin\Controlador\TiendaNubeControlador', 'conectar']);
+// A donde regresa Tienda Nube al autorizar: la «URL de redirección» del portal de socios.
+$r->get('/tiendanube/retorno',           ['LibertyFin\Controlador\TiendaNubeControlador', 'retorno']);
+$r->post('/tiendanube/desconectar',      ['LibertyFin\Controlador\TiendaNubeControlador', 'desconectar']);
+$r->post('/tiendanube/ajustes',          ['LibertyFin\Controlador\TiendaNubeControlador', 'ajustes']);
+$r->post('/tiendanube/avisos',           ['LibertyFin\Controlador\TiendaNubeControlador', 'avisos']);
+$r->post('/tiendanube/importar',         ['LibertyFin\Controlador\TiendaNubeControlador', 'importar']);
+$r->post('/tiendanube/vincular',         ['LibertyFin\Controlador\TiendaNubeControlador', 'vincular']);
+$r->post('/tiendanube/sincronizar',      ['LibertyFin\Controlador\TiendaNubeControlador', 'sincronizar']);
+$r->get('/tiendanube/publicar',          ['LibertyFin\Controlador\TiendaNubeControlador', 'publicar']);
+$r->post('/tiendanube/publicar',         ['LibertyFin\Controlador\TiendaNubeControlador', 'publicarGuardar']);
 $r->get('/igualas',                      ['LibertyFin\Controlador\IgualasControlador', 'index']);
 $r->post('/igualas/guardar',             ['LibertyFin\Controlador\IgualasControlador', 'guardar']);
 $r->post('/igualas/alternar',            ['LibertyFin\Controlador\IgualasControlador', 'alternar']);
@@ -527,6 +542,17 @@ $permisos = [
   '/mercadolibre/vincular'    => 'editar.mercadolibre',
   '/mercadolibre/sincronizar' => 'editar.mercadolibre',
   '/mercadolibre/publicar'    => 'editar.mercadolibre',
+  '/tiendanube'               => 'ver.tiendanube',
+  // Conectar la tienda de la empresa es de administrador, como en Mercado Libre.
+  '/tiendanube/conectar'      => 'editar.ajustes',
+  '/tiendanube/retorno'       => 'editar.ajustes',
+  '/tiendanube/desconectar'   => 'editar.ajustes',
+  '/tiendanube/ajustes'       => 'editar.ajustes',
+  '/tiendanube/avisos'        => 'editar.ajustes',
+  '/tiendanube/importar'      => 'editar.tiendanube',
+  '/tiendanube/vincular'      => 'editar.tiendanube',
+  '/tiendanube/sincronizar'   => 'editar.tiendanube',
+  '/tiendanube/publicar'      => 'editar.tiendanube',
   '/igualas'                => 'ver.igualas',
   '/igualas/guardar'        => 'editar.igualas',
   '/igualas/alternar'       => 'editar.igualas',
@@ -655,6 +681,8 @@ $publicas = ['/login', '/login/confirmar', '/salir', '/registro', '/ayuda-acceso
     // Los de Mercado Libre: un servidor suyo, sin sesión. No traen datos,
     // solo qué cambió; se le vuelve a preguntar con la llave de la cuenta.
     '/mercadolibre/aviso',
+    // Los de Tienda Nube: un servidor suyo, sin sesión. Su puerta es la firma HMAC.
+    '/tiendanube/aviso',
 ];
 $ruta     = '/' . trim((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 
