@@ -47,7 +47,7 @@ namespace LibertyFin\Servicio;
 final class Shopify
 {
     /** Versión de la API si `api_version` viene vacía. Shopify sostiene cada versión ~12 meses. */
-    const VERSION = '2025-10';
+    const VERSION = '2026-10';
 
     const SCOPES = 'read_products,write_products,read_orders,read_inventory,write_inventory,read_locations';
 
@@ -393,15 +393,19 @@ final class Shopify
         $loc  = self::gid('Location', $ubicacion);
         if ($activar && !$this->activarInventario($token, $tienda, $item, $loc)) return false;
 
+        $renglon = ['inventoryItemId' => $item, 'locationId' => $loc, 'quantity' => max(0, (int)$cantidad)];
+        $input   = ['name' => 'available', 'reason' => 'correction', 'quantities' => [$renglon]];
         $q = 'mutation ($input: InventorySetQuantitiesInput!) { inventorySetQuantities(input: $input) {
                 userErrors { field message code } } }';
-        $d = $this->graphql($tienda, $token, $q, ['input' => [
-            'name'                  => 'available',
-            'reason'                => 'correction',
-            'ignoreCompareQuantity' => true,
-            'quantities'            => [['inventoryItemId' => $item, 'locationId' => $loc, 'quantity' => max(0, (int)$cantidad)]],
-        ]]);
-        $ok = $this->sinErroresDeUsuario($d, 'inventorySetQuantities') !== null;
+        if (self::version() >= '2026-04') {
+            // Desde 2026-04: @idempotent obligatorio y, en lugar de
+            // ignoreCompareQuantity, changeFromQuantity: null = sin comparar.
+            $input['quantities'][0]['changeFromQuantity'] = null;
+            $q = self::conIdempotencia($q, 'inventorySetQuantities');
+        } else {
+            $input['ignoreCompareQuantity'] = true;
+        }
+        $ok = $this->mutacion($tienda, $token, $q, ['input' => $input], 'inventorySetQuantities');
         // «No está en esa ubicación»: se activa y se intenta una vez más.
         if (!$ok && !$activar && $this->ultimoHttp !== 401 && stripos($this->ultimoError, 'locat') !== false) {
             return $this->ponerExistencia($token, $tienda, $inventarioId, $ubicacion, $cantidad, true);
@@ -413,10 +417,37 @@ final class Shopify
     private function activarInventario($token, $tienda, $item, $loc)
     {
         $q = 'mutation ($id: ID!) { inventoryItemUpdate(id: $id, input: { tracked: true }) { userErrors { field message } } }';
-        if ($this->sinErroresDeUsuario($this->graphql($tienda, $token, $q, ['id' => $item]), 'inventoryItemUpdate') === null) return false;
+        if (!$this->mutacion($tienda, $token, $q, ['id' => $item], 'inventoryItemUpdate')) return false;
         $q = 'mutation ($item: ID!, $loc: ID!) { inventoryActivate(inventoryItemId: $item, locationId: $loc) {
                 inventoryLevel { id } userErrors { field message } } }';
-        return $this->sinErroresDeUsuario($this->graphql($tienda, $token, $q, ['item' => $item, 'loc' => $loc]), 'inventoryActivate') !== null;
+        return $this->mutacion($tienda, $token, $q, ['item' => $item, 'loc' => $loc], 'inventoryActivate');
+    }
+
+    /**
+     * Corre una mutación y dice si salió bien. Si Shopify contesta que
+     * esa mutación ahora exige @idempotent (pasa al subir de versión), se
+     * repite una vez con la directiva puesta.
+     */
+    private function mutacion($tienda, $token, $q, array $variables, $campo)
+    {
+        $ok = $this->sinErroresDeUsuario($this->graphql($tienda, $token, $q, $variables), $campo) !== null;
+        if (!$ok && stripos($this->ultimoError, '@idempotent') !== false && stripos($q, '@idempotent') === false) {
+            $q  = self::conIdempotencia($q, $campo);
+            $ok = $this->sinErroresDeUsuario($this->graphql($tienda, $token, $q, $variables), $campo) !== null;
+        }
+        return $ok;
+    }
+
+    /**
+     * Agrega `@idempotent(key: "…")` tras los argumentos de la mutación.
+     * Llave nueva en cada llamada: los reintentos por 429 de graphql()
+     * reusan la misma consulta, así que Shopify no aplica el cambio dos veces.
+     */
+    public static function conIdempotencia($q, $campo)
+    {
+        $llave = bin2hex(random_bytes(16));
+        return preg_replace('/\b(' . preg_quote($campo, '/') . '\s*\([^)]*\))/',
+            '$1 @idempotent(key: "' . $llave . '")', $q, 1);
     }
 
     // ════════════════════════════════════════════════════════
