@@ -414,7 +414,7 @@ final class TnInventario
                 $res = ['estado' => $estado, 'nueva' => true, 'nota' => $nota];
             } elseif (self::cancelada($o) && $aplicado && $antes === 'aplicada') {
                 foreach ($aplicado as $l) {
-                    $inv->moverPorTiendaNube($l['producto_id'], $l['sucursal_id'], (float)$l['cantidad'],
+                    self::mover($inv, $l['producto_id'], $l['sucursal_id'], (float)$l['cantidad'],
                         'Orden Tienda Nube #' . ($numero ?: $ordenId) . ' cancelada');
                 }
                 $guardar('devuelta', 'Cancelada en Tienda Nube: la mercancía regresó.');
@@ -454,11 +454,36 @@ final class TnInventario
             if (!$pid) $pid = $this->porSku((string)($l['sku'] ?? ''));
             if (!$pid) { $faltan[] = (string)($l['name'] ?? $var); continue; }
 
-            $inv->moverPorTiendaNube($pid, $suc, -$cant, $nota);
+            if (!self::mover($inv, $pid, $suc, -$cant, $nota)) { $faltan[] = (string)($l['name'] ?? $var) . ' (no lleva existencias)'; continue; }
             $aplicado[] = ['producto_id' => $pid, 'sucursal_id' => $suc, 'cantidad' => $cant];
         }
         $txt = $faltan ? 'Sin vincular: ' . implode(', ', array_slice($faltan, 0, 3)) . (count($faltan) > 3 ? '…' : '') : '';
         return [$aplicado ?: null, $txt];
+    }
+
+    /**
+     * Mueve existencias por una orden de Tienda Nube. Si Inventario todavía no
+     * tiene su propio tipo de movimiento (moverPorTiendaNube), usa el de
+     * Mercado Libre, que hace lo mismo: la nota dice que fue Tienda Nube.
+     */
+    private static function mover(Inventario $inv, $pid, $suc, $cant, $nota)
+    {
+        if (method_exists($inv, 'moverPorTiendaNube')) {
+            $inv->moverPorTiendaNube($pid, $suc, $cant, $nota);
+            return true;
+        }
+        if (method_exists($inv, 'moverPorMercadoLibre')) {
+            $inv->moverPorMercadoLibre($pid, $suc, $cant, $nota);
+            return true;
+        }
+        // Inventario sin tipos para tiendas en línea: entrada o salida normal.
+        try {
+            $inv->registrar($cant < 0 ? 'salida' : 'entrada', $pid, $suc, abs($cant), ['nota' => $nota]);
+            return true;
+        } catch (\InvalidArgumentException $e) {
+            // El producto no lleva existencias o la sucursal no sirve: no se mueve.
+            return false;
+        }
     }
 
     private function porSku($sku)

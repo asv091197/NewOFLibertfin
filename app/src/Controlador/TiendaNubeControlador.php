@@ -306,6 +306,24 @@ final class TiendaNubeControlador
         }
     }
 
+    /**
+     * Un solo producto por código, código de barras o nombre exacto; si no, el
+     * único cuyo nombre contenga el texto. Para cuando Inventario no trae el suyo.
+     */
+    private static function buscarProducto(\PDO $db, $texto)
+    {
+        $base = "SELECT id, nombre FROM productos WHERE activo = 1 AND lleva_inventario = 1 AND ";
+        $st = $db->prepare($base . "(codigo = ? OR codigo_barras = ? OR nombre = ?) LIMIT 2");
+        $st->execute([$texto, $texto, $texto]);
+        $f = $st->fetchAll(\PDO::FETCH_ASSOC);
+        if (count($f) !== 1) {
+            $st = $db->prepare($base . "nombre LIKE ? LIMIT 2");
+            $st->execute(['%' . addcslashes($texto, '%_\\') . '%']);
+            $f = $st->fetchAll(\PDO::FETCH_ASSOC);
+        }
+        return count($f) === 1 ? $f[0] : null;
+    }
+
     public function vincular()
     {
         $this->exigirToken();
@@ -316,7 +334,8 @@ final class TiendaNubeControlador
         $pid = (int)($_POST['producto_id'] ?? 0);
         $texto = trim((string)($_POST['producto_buscar'] ?? ''));
         if (!$pid && $texto !== '' && empty($_POST['soltar'])) {
-            $p = (new Inventario($db))->buscarProducto($texto);
+            $inv = new Inventario($db);
+            $p = method_exists($inv, 'buscarProducto') ? $inv->buscarProducto($texto) : self::buscarProducto($db, $texto);
             if (!$p) $this->volver('No encontré un solo producto con «' . $texto . '». Escribe su SKU o elígelo de la lista.', 'error');
             $pid = (int)$p['id'];
         }
