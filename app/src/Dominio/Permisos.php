@@ -147,6 +147,9 @@ final class Permisos
          // Tienda Nube: igual que Mercado Libre.
         'ver.tiendanube'      => ['admin','inventario'],
         'editar.tiendanube'   => ['admin','inventario'],
+        // Shopify: igual que Tienda Nube.
+        'ver.shopify'         => ['admin','inventario'],
+        'editar.shopify'      => ['admin','inventario'],
         'ver.agenda'          => ['admin','cajero'],
         'editar.agenda'       => ['admin','cajero'],
         'editar.gastos'    => ['admin','inventario'],

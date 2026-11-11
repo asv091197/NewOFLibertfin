@@ -398,6 +398,20 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
             <?= W::icono('bolsa','14px') ?> Publicar en Tienda Nube</a>
         <?php endif; ?>
       <?php endif; ?>
+      <?php /* Shopify: igual, con su módulo, permiso y tienda conectada (ServiciosControlador::shopDe). */
+      if ($e && !empty($shop)): ?>
+        <?php if (!empty($shop['publicado'])): ?>
+          <?php if (!empty($shop['publicado']['permalink'])): ?>
+            <a class="lf-link" href="<?= P::e($shop['publicado']['permalink']) ?>" target="_blank" rel="noopener">
+              Ver en Shopify ↗</a>
+          <?php else: ?>
+            <span class="lf-link">En Shopify: #<?= P::e($shop['publicado']['producto_shop']) ?></span>
+          <?php endif; ?>
+        <?php elseif (!empty($e['lleva_inventario'])): ?>
+          <a class="btn btn-secondary" href="/shopify/publicar?producto=<?= (int)$e['id'] ?>">
+            <?= W::icono('bolsa','14px') ?> Publicar en Shopify</a>
+        <?php endif; ?>
+      <?php endif; ?>
     </div>
     <p style="width:100%;font-size:11.5px;color:var(--lf-tinta-4);margin:0">
       Escribe la utilidad y el precio se calcula solo, o al revés. El costo se resta antes de calcular

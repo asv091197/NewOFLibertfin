@@ -30,7 +30,7 @@ use PDO;
 final class Migraciones
 {
     /** Súbelo al agregar una migración nueva. */
-    const VERSION = 31;
+    const VERSION = 32;
 
     /**
      * La versión vive en `lf_ajustes`, no en `sistema_config`.
@@ -1715,6 +1715,90 @@ final class Migraciones
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
+    /**
+     * 32 · Shopify: la tienda de la empresa, cada variante vinculada a un
+     * producto, y las órdenes que ya movieron existencias. Mismo diseño que
+     * la 31 (Tienda Nube), con dos diferencias de Shopify:
+     *
+     *  · La existencia vive por UBICACIÓN: la cuenta guarda `location_id`,
+     *    y cada variante su `inventario_shop` (el «inventory item»).
+     *  · La llave puede caducar: `refresh_token` y `expira_en` (cifrado y
+     *    NULL si no caduca).
+     */
+    private static function v32(PDO $db)
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_shop_cuenta (
+                id                 TINYINT NOT NULL PRIMARY KEY,
+                tienda             VARCHAR(120) NULL DEFAULT NULL,
+                nombre             VARCHAR(120) NULL DEFAULT NULL,
+                url                VARCHAR(255) NULL DEFAULT NULL,
+                moneda             VARCHAR(3)   NULL DEFAULT NULL,
+                access_token       TEXT NULL,
+                refresh_token      TEXT NULL,
+                expira_en          DATETIME NULL DEFAULT NULL,
+                estado             VARCHAR(20) NOT NULL DEFAULT 'desconectada',
+                location_id        VARCHAR(24)  NULL DEFAULT NULL,
+                location_nombre    VARCHAR(120) NULL DEFAULT NULL,
+                sucursal_id        INT NULL DEFAULT NULL,
+                reserva            DECIMAL(12,3) NOT NULL DEFAULT 0,
+                enviar_existencias TINYINT(1) NOT NULL DEFAULT 0,
+                descontar_ventas   TINYINT(1) NOT NULL DEFAULT 1,
+                avisos_ok          TINYINT(1) NOT NULL DEFAULT 0,
+                avisos_nota        VARCHAR(255) NULL DEFAULT NULL,
+                conectado_por      VARCHAR(100) NULL DEFAULT NULL,
+                conectado_en       DATETIME NULL DEFAULT NULL,
+                actualizado_en     DATETIME NULL DEFAULT NULL,
+                sincronizado_en    DATETIME NULL DEFAULT NULL,
+                ordenes_desde      DATETIME NULL DEFAULT NULL,
+                ultimo_error       VARCHAR(255) NULL DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_shop_productos (
+                id              INT AUTO_INCREMENT PRIMARY KEY,
+                producto_shop   VARCHAR(24) NOT NULL,
+                variante_shop   VARCHAR(24) NOT NULL,
+                inventario_shop VARCHAR(24) NULL DEFAULT NULL,
+                titulo          VARCHAR(255) NULL DEFAULT NULL,
+                variante        VARCHAR(160) NULL DEFAULT NULL,
+                sku             VARCHAR(100) NULL DEFAULT NULL,
+                estado_shop     VARCHAR(20)  NULL DEFAULT NULL,
+                permalink       VARCHAR(255) NULL DEFAULT NULL,
+                imagen          VARCHAR(255) NULL DEFAULT NULL,
+                precio          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                stock_shop      INT NULL DEFAULT NULL,
+                producto_id     INT NULL DEFAULT NULL,
+                vinculo         VARCHAR(10) NULL DEFAULT NULL,
+                pendiente       TINYINT(1) NOT NULL DEFAULT 0,
+                enviado_stock   INT NULL DEFAULT NULL,
+                enviado_en      DATETIME NULL DEFAULT NULL,
+                error           VARCHAR(255) NULL DEFAULT NULL,
+                actualizado_en  DATETIME NULL DEFAULT NULL,
+                UNIQUE KEY ux_sp_variante (variante_shop),
+                KEY ix_sp_producto_shop (producto_shop),
+                KEY ix_sp_producto (producto_id),
+                KEY ix_sp_pendiente (pendiente),
+                KEY ix_sp_sku (sku)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_shop_ordenes (
+                orden_id       VARCHAR(24) NOT NULL PRIMARY KEY,
+                numero         VARCHAR(20) NULL DEFAULT NULL,
+                estado         VARCHAR(20) NOT NULL DEFAULT 'nueva',
+                estado_shop    VARCHAR(40) NULL DEFAULT NULL,
+                comprador      VARCHAR(120) NULL DEFAULT NULL,
+                total          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                fecha_shop     DATETIME NULL DEFAULT NULL,
+                aplicado       TEXT NULL,
+                nota           VARCHAR(255) NULL DEFAULT NULL,
+                creado_en      DATETIME NOT NULL,
+                actualizado_en DATETIME NULL DEFAULT NULL,
+                KEY ix_so_fecha (fecha_shop)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
     /** Lo que hace cada versión, para mostrarlo en Mantenimiento. */
     const DESCRIPCIONES = [
         1 => 'Tabla de ajustes propia (lf_ajustes)',
@@ -1747,5 +1831,6 @@ final class Migraciones
         29 => 'Capturas de entrada y salida con pistola de código de barras, que se pueden pausar y retomar',
         30 => 'Mercado Libre: cuenta de vendedor por empresa, publicaciones vinculadas a productos y órdenes que descuentan existencias',
         31 => 'Tienda Nube: tienda en línea por empresa, variantes vinculadas a productos y órdenes que descuentan existencias',
+        32 => 'Shopify: tienda en línea por empresa, variantes vinculadas a productos por ubicación y órdenes que descuentan existencias',
     ];
 }

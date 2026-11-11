@@ -307,6 +307,21 @@ $r->post('/tiendanube/vincular',         ['LibertyFin\Controlador\TiendaNubeCont
 $r->post('/tiendanube/sincronizar',      ['LibertyFin\Controlador\TiendaNubeControlador', 'sincronizar']);
 $r->get('/tiendanube/publicar',          ['LibertyFin\Controlador\TiendaNubeControlador', 'publicar']);
 $r->post('/tiendanube/publicar',         ['LibertyFin\Controlador\TiendaNubeControlador', 'publicarGuardar']);
+// Shopify: igual que Tienda Nube. El aviso lo llama un servidor suyo, sin
+// sesión, FIRMADO con el secreto de la aplicación (ver AvisosShopifyControlador).
+$r->post('/shopify/aviso',               ['LibertyFin\Controlador\AvisosShopifyControlador', 'recibir']);
+$r->get('/shopify',                      ['LibertyFin\Controlador\ShopifyControlador', 'index']);
+$r->post('/shopify/conectar',            ['LibertyFin\Controlador\ShopifyControlador', 'conectar']);
+// A donde regresa Shopify al autorizar: tiene que estar en «Allowed redirection URL(s)» de la app.
+$r->get('/shopify/retorno',              ['LibertyFin\Controlador\ShopifyControlador', 'retorno']);
+$r->post('/shopify/desconectar',         ['LibertyFin\Controlador\ShopifyControlador', 'desconectar']);
+$r->post('/shopify/ajustes',             ['LibertyFin\Controlador\ShopifyControlador', 'ajustes']);
+$r->post('/shopify/avisos',              ['LibertyFin\Controlador\ShopifyControlador', 'avisos']);
+$r->post('/shopify/importar',            ['LibertyFin\Controlador\ShopifyControlador', 'importar']);
+$r->post('/shopify/vincular',            ['LibertyFin\Controlador\ShopifyControlador', 'vincular']);
+$r->post('/shopify/sincronizar',         ['LibertyFin\Controlador\ShopifyControlador', 'sincronizar']);
+$r->get('/shopify/publicar',             ['LibertyFin\Controlador\ShopifyControlador', 'publicar']);
+$r->post('/shopify/publicar',            ['LibertyFin\Controlador\ShopifyControlador', 'publicarGuardar']);
 $r->get('/igualas',                      ['LibertyFin\Controlador\IgualasControlador', 'index']);
 $r->post('/igualas/guardar',             ['LibertyFin\Controlador\IgualasControlador', 'guardar']);
 $r->post('/igualas/alternar',            ['LibertyFin\Controlador\IgualasControlador', 'alternar']);
@@ -669,6 +684,9 @@ $publicas = ['/login', '/login/confirmar', '/salir', '/registro', '/ayuda-acceso
     // Los de Mercado Libre: un servidor suyo, sin sesión. No traen datos,
     // solo qué cambió; se le vuelve a preguntar con la llave de la cuenta.
     '/mercadolibre/aviso',
+    // Los de Shopify: un servidor suyo, sin sesión. Su puerta es la firma
+    // HMAC del cuerpo, que revisa el controlador (y contesta 401 si no vale).
+    '/shopify/aviso',
 ];
 $ruta     = '/' . trim((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 

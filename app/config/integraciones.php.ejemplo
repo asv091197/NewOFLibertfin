@@ -519,4 +519,68 @@ return [
 
         'timeout'  => 25,
     ],
+
+    // ─────────────────────────────────────────────────────────────
+    //  SHOPIFY
+    // ─────────────────────────────────────────────────────────────
+    //
+    //  AQUÍ VA LA APLICACIÓN, NO LAS TIENDAS. Igual que Tienda Nube:
+    //  cada EMPRESA conecta su propia tienda desde el menú Shopify →
+    //  escribe su «mitienda.myshopify.com» → «Conectar», y su llave se
+    //  guarda cifrada en la base de su empresa.
+    //
+    //  CÓMO SE CREA LA APLICACIÓN
+    //
+    //  https://dev.shopify.com (Dev Dashboard) o partners.shopify.com →
+    //  Crear aplicación. Para varias tiendas tiene que ser PÚBLICA o de
+    //  «distribución personalizada»; una app «custom» hecha desde el
+    //  panel de una tienda solo sirve para esa tienda.
+    //
+    //    · App URL:  https://TU-DOMINIO/shopify
+    //    · Allowed redirection URL(s):
+    //        https://TU-DOMINIO/shopify/retorno
+    //      Tiene que ser IDÉNTICA, con https.
+    //    · Permisos (scopes): los de `scopes` abajo. Si los cambias en la
+    //      app, cámbialos aquí también (y las tiendas tienen que reconectar).
+    //    · Webhooks obligatorios de privacidad (customers/data_request,
+    //      customers/redact, shop/redact): apúntalos a
+    //        https://TU-DOMINIO/shopify/aviso
+    //      LibertyFin no guarda datos de compradores, solo contesta 200.
+    //    · NO pidas acceso a «datos protegidos de clientes»: LibertyFin no
+    //      lee nombre ni correo del comprador a propósito.
+    //
+    //  Los avisos de órdenes y productos NO se configuran en la app:
+    //  LibertyFin los da de alta en cada tienda al conectarla. Shopify
+    //  solo los acepta en una dirección pública con https.
+    //
+    //  Al guardar te da el Client ID y el Client secret: van abajo.
+    //
+    //  Para revisar que quedó, y para la tarea que sincroniza cada rato:
+    //    php app/bin/shopify-sincronizar.php --revisar
+    //
+    'shopify' => [
+        'activo'    => false,
+        'client_id' => '',   // Client ID
+        'secreto'   => '',   // Client secret: también firma el retorno y los avisos
+
+        // Vacío = read_products,write_products,read_orders,read_inventory,
+        //         write_inventory,read_locations
+        'scopes'    => '',
+
+        // Versión de la API GraphQL (AAAA-MM). Vacío = la que trae el
+        // código. Shopify sostiene cada versión unos 12 meses: súbela de
+        // vez en cuando y prueba con --crudo.
+        'api_version' => '',
+
+        // La dirección pública del sistema, sin / al final. Vacío = la del
+        // navegador. Ponla si entras por una dirección distinta a la
+        // pública (IP, otro dominio): de aquí salen el retorno y los avisos.
+        'dominio'   => '',   // https://TU-DOMINIO
+
+        // Con qué se cifran las llaves de cada tienda. Vacío = se deriva
+        // del `secreto`. Cambiarla obliga a reconectar todas las tiendas.
+        'llave_cifrado' => '',
+
+        'timeout'   => 25,
+    ],
 ];

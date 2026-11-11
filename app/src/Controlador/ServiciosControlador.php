@@ -50,6 +50,7 @@ final class ServiciosControlador
             'modProducto' => $this->modProducto($db),
             'meli'      => $this->meliDe($db, $editar),
             'tn'        => $this->tnDe($db, $editar),
+            'shop'      => $this->shopDe($db, $editar),
         ]);
         unset($_SESSION['lf_aviso']);
     }
@@ -85,6 +86,22 @@ final class ServiciosControlador
             $srv = new \LibertyFin\Servicio\TnInventario($db);
             if (!$srv->conectada()) return null;
             $ya = (new \LibertyFin\Servicio\TnPublicar($db, $srv))->yaPublicado($productoId);
+            return ['publicado' => $ya];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Igual que tnDe(), para el botón «Publicar en Shopify». */
+    private function shopDe($db, $productoId)
+    {
+        if (!$productoId) return null;
+        try {
+            if (!\LibertyFin\Servicio\Modulos::deSesion()->activo('shopify')) return null;
+            if (!\LibertyFin\Dominio\Permisos::puede('editar.shopify')) return null;
+            $srv = new \LibertyFin\Servicio\ShopifyInventario($db);
+            if (!$srv->conectada()) return null;
+            $ya = (new \LibertyFin\Servicio\ShopifyPublicar($db, $srv))->yaPublicado($productoId);
             return ['publicado' => $ya];
         } catch (\Throwable $e) {
             return null;

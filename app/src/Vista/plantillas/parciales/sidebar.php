@@ -50,6 +50,7 @@ $deEmpresa = [
   ['ruta' => '/envios',     'icono' => 'camion',  'texto' => 'Envíos',        'p' => 'ver.envios',       'mod' => 'envios'],
   ['ruta' => '/mercadolibre','icono' => 'bolsa',  'texto' => 'Mercado Libre', 'p' => 'ver.mercadolibre', 'mod' => 'mercadolibre'],
    ['ruta' => '/tiendanube', 'icono' => 'bolsa',   'texto' => 'Tienda Nube',   'p' => 'ver.tiendanube',   'mod' => 'tiendanube'],
+  ['ruta' => '/shopify',    'icono' => 'bolsa',   'texto' => 'Shopify',       'p' => 'ver.shopify',      'mod' => 'shopify'],
   ['ruta' => '/importar',   'icono' => 'bolsa',   'texto' => 'Importar',      'p' => 'importar.ventas'],
   ['ruta' => '/reportes',   'icono' => 'pct',     'texto' => 'Reportes',      'p' => 'ver.reportes',
    'sec' => 'reportes'],
