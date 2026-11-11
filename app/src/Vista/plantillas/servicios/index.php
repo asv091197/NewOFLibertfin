@@ -384,7 +384,7 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
             <?= W::icono('bolsa','14px') ?> Publicar en Mercado Libre</a>
         <?php endif; ?>
       <?php endif; ?>
-      <?php /* Tienda Nube: igual, con su módulo, permiso y tienda conectada (ServiciosControlador::tnDe). */
+       <?php /* Tienda Nube: igual, con su módulo, permiso y tienda conectada (ServiciosControlador::tnDe). */
       if ($e && !empty($tn)): ?>
         <?php if (!empty($tn['publicado'])): ?>
           <?php if (!empty($tn['publicado']['permalink'])): ?>

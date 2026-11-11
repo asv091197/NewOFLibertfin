@@ -541,18 +541,6 @@ $permisos = [
   '/mercadolibre/importar'    => 'editar.mercadolibre',
   '/mercadolibre/vincular'    => 'editar.mercadolibre',
   '/mercadolibre/sincronizar' => 'editar.mercadolibre',
-  '/mercadolibre/publicar'    => 'editar.mercadolibre',
-  '/tiendanube'               => 'ver.tiendanube',
-  // Conectar la tienda de la empresa es de administrador, como en Mercado Libre.
-  '/tiendanube/conectar'      => 'editar.ajustes',
-  '/tiendanube/retorno'       => 'editar.ajustes',
-  '/tiendanube/desconectar'   => 'editar.ajustes',
-  '/tiendanube/ajustes'       => 'editar.ajustes',
-  '/tiendanube/avisos'        => 'editar.ajustes',
-  '/tiendanube/importar'      => 'editar.tiendanube',
-  '/tiendanube/vincular'      => 'editar.tiendanube',
-  '/tiendanube/sincronizar'   => 'editar.tiendanube',
-  '/tiendanube/publicar'      => 'editar.tiendanube',
   '/igualas'                => 'ver.igualas',
   '/igualas/guardar'        => 'editar.igualas',
   '/igualas/alternar'       => 'editar.igualas',
@@ -681,8 +669,6 @@ $publicas = ['/login', '/login/confirmar', '/salir', '/registro', '/ayuda-acceso
     // Los de Mercado Libre: un servidor suyo, sin sesión. No traen datos,
     // solo qué cambió; se le vuelve a preguntar con la llave de la cuenta.
     '/mercadolibre/aviso',
-    // Los de Tienda Nube: un servidor suyo, sin sesión. Su puerta es la firma HMAC.
-    '/tiendanube/aviso',
 ];
 $ruta     = '/' . trim((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 

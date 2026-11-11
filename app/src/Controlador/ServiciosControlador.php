@@ -54,6 +54,7 @@ final class ServiciosControlador
         unset($_SESSION['lf_aviso']);
     }
 
+    
     /**
      * Para el botón «Publicar en Mercado Libre» del producto que se edita.
      * null si no aplica: módulo apagado, sin permiso, sin cuenta conectada.
@@ -73,7 +74,7 @@ final class ServiciosControlador
             return null;
         }
     }
-
+    
     /** Igual que meliDe(), para el botón «Publicar en Tienda Nube». */
     private function tnDe($db, $productoId)
     {
