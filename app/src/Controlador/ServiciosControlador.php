@@ -107,7 +107,7 @@ final class ServiciosControlador
             return null;
         }
     }
-
+    
     /** ['agenda' => bool, 'paquetes' => bool, 'servicios' => [...]] o null si ninguno. */
     private function modProducto($db)
     {
