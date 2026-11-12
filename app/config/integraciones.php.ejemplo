@@ -564,7 +564,8 @@ return [
         'secreto'   => '',   // Client secret: también firma el retorno y los avisos
 
         // Vacío = read_products,write_products,read_orders,read_inventory,
-        //         write_inventory,read_locations
+        //         write_inventory,read_locations,read_publications,
+        //         write_publications (los mismos que en la versión de la app)
         'scopes'    => '',
 
         // Versión de la API GraphQL (AAAA-MM). Vacío = la que trae el

@@ -49,7 +49,7 @@ final class Shopify
     /** Versión de la API si `api_version` viene vacía. Shopify sostiene cada versión ~12 meses. */
     const VERSION = '2026-10';
 
-    const SCOPES = 'read_products,write_products,read_orders,read_inventory,write_inventory,read_locations';
+    const SCOPES = 'read_products,write_products,read_orders,read_inventory,write_inventory,read_locations,read_publications,write_publications';
 
     /** Los avisos que se dan de alta en cada tienda al conectar (formato GraphQL de WebhookSubscriptionTopic). */
     const EVENTOS = ['ORDERS_PAID', 'ORDERS_CANCELLED', 'ORDERS_UPDATED', 'PRODUCTS_UPDATE', 'PRODUCTS_DELETE', 'APP_UNINSTALLED'];
@@ -545,6 +545,40 @@ final class Shopify
             'variante'   => (string)($v['legacyResourceId'] ?? ''),
             'inventario' => (string)($v['inventoryItem']['legacyResourceId'] ?? ''),
         ];
+    }
+
+    /**
+     * Publica el producto en el canal «Tienda online». productCreate lo deja
+     * activo pero sin canal: sin esto no se ve ni se puede comprar en la
+     * página. Pide `read_publications` y `write_publications`.
+     */
+    public function publicarEnTiendaOnline($token, $tienda, $productoId)
+    {
+        $pub = $this->publicacionTiendaOnline($token, $tienda);
+        if ($pub === '') return false;
+        $q = 'mutation ($id: ID!, $input: [PublicationInput!]!) { publishablePublish(id: $id, input: $input) {
+                userErrors { field message } } }';
+        return $this->mutacion($tienda, $token, $q,
+            ['id' => self::gid('Product', $productoId), 'input' => [['publicationId' => $pub]]], 'publishablePublish');
+    }
+
+    /** El id de la publicación del canal Tienda online (app con handle «online_store»). */
+    private function publicacionTiendaOnline($token, $tienda)
+    {
+        $q = '{ publications(first: 50) { nodes { id
+                catalog { title ... on AppCatalog { apps(first: 3) { nodes { handle } } } } } } }';
+        $d = $this->graphql($tienda, $token, $q);
+        if ($d === null) return '';
+        $porTitulo = '';
+        foreach ((array)($d['publications']['nodes'] ?? []) as $n) {
+            foreach ((array)($n['catalog']['apps']['nodes'] ?? []) as $a) {
+                if (($a['handle'] ?? '') === 'online_store') return (string)$n['id'];
+            }
+            $t = (string)($n['catalog']['title'] ?? '');
+            if ($porTitulo === '' && preg_match('/online store|tienda (online|en l[ií]nea)/i', $t)) $porTitulo = (string)$n['id'];
+        }
+        if ($porTitulo === '') $this->ultimoError = 'la tienda no tiene el canal «Tienda online» instalado.';
+        return $porTitulo;
     }
 
     public function actualizarVariante($token, $tienda, $productoId, $varianteId, array $datos)

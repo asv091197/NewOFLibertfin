@@ -137,6 +137,9 @@ final class ShopifyPublicar
 
         // Lo que falle de aquí en adelante no deshace el producto: se avisa.
         $avisos = [];
+        if ($datos['producto']['status'] === 'ACTIVE' && !$api->publicarEnTiendaOnline($token, $tienda, $p['id'])) {
+            $avisos[] = 'No se publicó en el canal Tienda online (' . $api->error() . '): márcalo en Shopify → producto → Canales de ventas.';
+        }
         if (!$api->actualizarVariante($token, $tienda, $p['id'], $p['variante'], $datos['variante'])) {
             $avisos[] = 'El precio o el SKU no se guardaron (' . $api->error() . '): corrígelos en Shopify.';
         }
