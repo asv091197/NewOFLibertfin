@@ -30,7 +30,7 @@ use PDO;
 final class Migraciones
 {
     /** Súbelo al agregar una migración nueva. */
-    const VERSION = 32;
+    const VERSION = 33;
 
     /**
      * La versión vive en `lf_ajustes`, no en `sistema_config`.
@@ -1799,6 +1799,93 @@ final class Migraciones
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
+    /**
+     * 33 · TikTok Shop: la tienda de la empresa, cada SKU vinculado a un
+     * producto, y las órdenes que ya movieron existencias. Mismo diseño que
+     * la 32 (Shopify), con lo propio de TikTok:
+     *
+     *  · `shop_cipher`: va en casi todas las llamadas a su API.
+     *  · `app_key`, `app_secret`, `service_id`: la app «Seller in-house» de la
+     *    empresa, si tiene. Vacías = la app pública de config. El secreto, cifrado.
+     *  · La llave caduca en días: `expira_en` y `refresh_expira_en`.
+     *  · La existencia vive por ALMACÉN: `almacen_id`.
+     *  · `aviso_en`: los avisos se configuran en el Partner Center, no por
+     *    API, así que la única forma de saber que llegan es anotar el último.
+     */
+    private static function v33(PDO $db)
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_tt_cuenta (
+                id                 TINYINT NOT NULL PRIMARY KEY,
+                shop_id            VARCHAR(32)  NULL DEFAULT NULL,
+                shop_cipher        VARCHAR(128) NULL DEFAULT NULL,
+                nombre             VARCHAR(120) NULL DEFAULT NULL,
+                region             VARCHAR(8)   NULL DEFAULT NULL,
+                vendedor           VARCHAR(120) NULL DEFAULT NULL,
+                app_key            VARCHAR(64)  NULL DEFAULT NULL,
+                app_secret         TEXT NULL,
+                service_id         VARCHAR(64)  NULL DEFAULT NULL,
+                access_token       TEXT NULL,
+                refresh_token      TEXT NULL,
+                expira_en          DATETIME NULL DEFAULT NULL,
+                refresh_expira_en  DATETIME NULL DEFAULT NULL,
+                estado             VARCHAR(20) NOT NULL DEFAULT 'desconectada',
+                almacen_id         VARCHAR(32)  NULL DEFAULT NULL,
+                almacen_nombre     VARCHAR(120) NULL DEFAULT NULL,
+                sucursal_id        INT NULL DEFAULT NULL,
+                reserva            DECIMAL(12,3) NOT NULL DEFAULT 0,
+                enviar_existencias TINYINT(1) NOT NULL DEFAULT 0,
+                descontar_ventas   TINYINT(1) NOT NULL DEFAULT 1,
+                aviso_en           DATETIME NULL DEFAULT NULL,
+                conectado_por      VARCHAR(100) NULL DEFAULT NULL,
+                conectado_en       DATETIME NULL DEFAULT NULL,
+                actualizado_en     DATETIME NULL DEFAULT NULL,
+                sincronizado_en    DATETIME NULL DEFAULT NULL,
+                ordenes_desde      DATETIME NULL DEFAULT NULL,
+                ultimo_error       VARCHAR(255) NULL DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_tt_productos (
+                id              INT AUTO_INCREMENT PRIMARY KEY,
+                producto_tt     VARCHAR(32) NOT NULL,
+                sku_tt          VARCHAR(32) NOT NULL,
+                titulo          VARCHAR(255) NULL DEFAULT NULL,
+                variante        VARCHAR(160) NULL DEFAULT NULL,
+                sku             VARCHAR(100) NULL DEFAULT NULL,
+                estado_tt       VARCHAR(20)  NULL DEFAULT NULL,
+                imagen          VARCHAR(255) NULL DEFAULT NULL,
+                precio          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                stock_tt        INT NULL DEFAULT NULL,
+                producto_id     INT NULL DEFAULT NULL,
+                vinculo         VARCHAR(10) NULL DEFAULT NULL,
+                pendiente       TINYINT(1) NOT NULL DEFAULT 0,
+                enviado_stock   INT NULL DEFAULT NULL,
+                enviado_en      DATETIME NULL DEFAULT NULL,
+                error           VARCHAR(255) NULL DEFAULT NULL,
+                actualizado_en  DATETIME NULL DEFAULT NULL,
+                UNIQUE KEY ux_tp_sku_tt (sku_tt),
+                KEY ix_tp_producto_tt (producto_tt),
+                KEY ix_tp_producto (producto_id),
+                KEY ix_tp_pendiente (pendiente),
+                KEY ix_tp_sku (sku)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_tt_ordenes (
+                orden_id       VARCHAR(32) NOT NULL PRIMARY KEY,
+                estado         VARCHAR(20) NOT NULL DEFAULT 'nueva',
+                estado_tt      VARCHAR(40) NULL DEFAULT NULL,
+                total          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                fecha_tt       DATETIME NULL DEFAULT NULL,
+                aplicado       TEXT NULL,
+                nota           VARCHAR(255) NULL DEFAULT NULL,
+                creado_en      DATETIME NOT NULL,
+                actualizado_en DATETIME NULL DEFAULT NULL,
+                KEY ix_to_fecha (fecha_tt)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
     /** Lo que hace cada versión, para mostrarlo en Mantenimiento. */
     const DESCRIPCIONES = [
         1 => 'Tabla de ajustes propia (lf_ajustes)',
@@ -1832,5 +1919,6 @@ final class Migraciones
         30 => 'Mercado Libre: cuenta de vendedor por empresa, publicaciones vinculadas a productos y órdenes que descuentan existencias',
         31 => 'Tienda Nube: tienda en línea por empresa, variantes vinculadas a productos y órdenes que descuentan existencias',
         32 => 'Shopify: tienda en línea por empresa, variantes vinculadas a productos por ubicación y órdenes que descuentan existencias',
+        33 => 'TikTok Shop: tienda por empresa (con app propia o la de LibertyFin), SKU vinculados a productos por almacén y órdenes que descuentan existencias',
     ];
 }

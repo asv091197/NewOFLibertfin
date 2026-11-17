@@ -651,6 +651,11 @@ final class Inventario
         // cada página.
         Alertas::olvidar($sucursalId);
 
+        // La tienda de TikTok Shop, si está conectada y manda existencias:
+        // solo marca el producto; se manda al terminar la petición. Nunca
+        // falla hacia afuera (ver TikTokInventario::marcar).
+        TikTokInventario::marcar($this->db, $productoId);
+
         return $queda;
     }
 

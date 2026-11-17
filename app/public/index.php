@@ -322,6 +322,19 @@ $r->post('/shopify/vincular',            ['LibertyFin\Controlador\ShopifyControl
 $r->post('/shopify/sincronizar',         ['LibertyFin\Controlador\ShopifyControlador', 'sincronizar']);
 $r->get('/shopify/publicar',             ['LibertyFin\Controlador\ShopifyControlador', 'publicar']);
 $r->post('/shopify/publicar',            ['LibertyFin\Controlador\ShopifyControlador', 'publicarGuardar']);
+// TikTok Shop: igual que Shopify. El aviso lo llama un servidor suyo, sin
+// sesión, FIRMADO con el secreto de la app que toque (ver AvisosTikTokControlador).
+$r->post('/tiktok/aviso',                ['LibertyFin\Controlador\AvisosTikTokControlador', 'recibir']);
+$r->get('/tiktok',                       ['LibertyFin\Controlador\TikTokControlador', 'index']);
+$r->post('/tiktok/credenciales',         ['LibertyFin\Controlador\TikTokControlador', 'credenciales']);
+$r->post('/tiktok/conectar',             ['LibertyFin\Controlador\TikTokControlador', 'conectar']);
+// A donde regresa TikTok al autorizar: es la «Redirect URL» de la app en el Partner Center.
+$r->get('/tiktok/retorno',               ['LibertyFin\Controlador\TikTokControlador', 'retorno']);
+$r->post('/tiktok/desconectar',          ['LibertyFin\Controlador\TikTokControlador', 'desconectar']);
+$r->post('/tiktok/ajustes',              ['LibertyFin\Controlador\TikTokControlador', 'ajustes']);
+$r->post('/tiktok/importar',             ['LibertyFin\Controlador\TikTokControlador', 'importar']);
+$r->post('/tiktok/vincular',             ['LibertyFin\Controlador\TikTokControlador', 'vincular']);
+$r->post('/tiktok/sincronizar',          ['LibertyFin\Controlador\TikTokControlador', 'sincronizar']);
 $r->get('/igualas',                      ['LibertyFin\Controlador\IgualasControlador', 'index']);
 $r->post('/igualas/guardar',             ['LibertyFin\Controlador\IgualasControlador', 'guardar']);
 $r->post('/igualas/alternar',            ['LibertyFin\Controlador\IgualasControlador', 'alternar']);
@@ -568,6 +581,17 @@ $permisos = [
   '/tiendanube/vincular'      => 'editar.tiendanube',
   '/tiendanube/sincronizar'   => 'editar.tiendanube',
   '/tiendanube/publicar'      => 'editar.tiendanube',
+  '/tiktok'                   => 'ver.tiktok',
+  // Las credenciales de la app, conectar y decidir de dónde sale lo que se
+  // vende allá comprometen la tienda de la empresa: es de administrador.
+  '/tiktok/credenciales'      => 'editar.ajustes',
+  '/tiktok/conectar'          => 'editar.ajustes',
+  '/tiktok/retorno'           => 'editar.ajustes',
+  '/tiktok/desconectar'       => 'editar.ajustes',
+  '/tiktok/ajustes'           => 'editar.ajustes',
+  '/tiktok/importar'          => 'editar.tiktok',
+  '/tiktok/vincular'          => 'editar.tiktok',
+  '/tiktok/sincronizar'       => 'editar.tiktok',
   '/igualas'                => 'ver.igualas',
   '/igualas/guardar'        => 'editar.igualas',
   '/igualas/alternar'       => 'editar.igualas',
@@ -699,6 +723,9 @@ $publicas = ['/login', '/login/confirmar', '/salir', '/registro', '/ayuda-acceso
     // Los de Shopify: un servidor suyo, sin sesión. Su puerta es la firma
     // HMAC del cuerpo, que revisa el controlador (y contesta 401 si no vale).
     '/shopify/aviso',
+    // Los de TikTok Shop, por lo mismo. Su puerta es la firma HMAC de la
+    // cabecera Authorization, que revisa el controlador (401 si no vale).
+    '/tiktok/aviso',
 ];
 $ruta     = '/' . trim((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 

@@ -150,6 +150,9 @@ final class Permisos
         // Shopify: igual que Tienda Nube.
         'ver.shopify'         => ['admin','inventario'],
         'editar.shopify'      => ['admin','inventario'],
+        // TikTok Shop: igual que Shopify.
+        'ver.tiktok'          => ['admin','inventario'],
+        'editar.tiktok'       => ['admin','inventario'],
         'ver.agenda'          => ['admin','cajero'],
         'editar.agenda'       => ['admin','cajero'],
         'editar.gastos'    => ['admin','inventario'],

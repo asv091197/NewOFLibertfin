@@ -584,4 +584,60 @@ return [
 
         'timeout'   => 25,
     ],
+
+    // ─────────────────────────────────────────────────────────────
+    //  TIKTOK SHOP
+    // ─────────────────────────────────────────────────────────────
+    //
+    //  DOS FORMAS, Y SE PUEDEN MEZCLAR:
+    //
+    //  A) App pública (ISV) de LibertyFin. Se registra UNA vez en el
+    //     Partner Center de TikTok Shop (partner.tiktokshop.com) y sus
+    //     datos van aquí abajo. Cada empresa solo da clic en «Conectar».
+    //
+    //  B) «Seller in-house»: cada vendedor registra SU aplicación (solo
+    //     sirve para sus propias tiendas) y pega su App Key, App Secret y
+    //     Service ID en el menú TikTok Shop → Ajustes. Se guardan cifrados
+    //     en la base de su empresa. Para esto aquí basta con `activo` y
+    //     `llave_cifrado`; app_key y app_secret pueden quedar vacíos.
+    //
+    //  Si una empresa puso las suyas, se usan las suyas; si no, las de aquí.
+    //
+    //  EN LA APLICACIÓN (la de LibertyFin o la de cada vendedor)
+    //
+    //    · Redirect URL:  https://TU-DOMINIO/tiktok/retorno
+    //    · Webhook URL:   https://TU-DOMINIO/tiktok/aviso
+    //      Suscribe el aviso de cambio de estado de orden
+    //      (ORDER_STATUS_CHANGE). Opcional: el de cambio de producto.
+    //      TikTok NO deja darlos de alta por API: es aquí o no llegan.
+    //    · Permisos: productos (leer y existencias), órdenes (leer),
+    //      logística (almacenes) y autorización (tiendas).
+    //    · NO pidas datos del comprador: LibertyFin no los lee.
+    //
+    //  Para revisar que quedó, y para la tarea que sincroniza cada rato
+    //  (también renueva las llaves, que TikTok da por unos días):
+    //    php app/bin/tiktok-sincronizar.php --revisar
+    //
+    'tiktok' => [
+        'activo'     => false,
+        'app_key'    => '',   // App Key de la app pública (vacío si solo se usa in-house)
+        'app_secret' => '',   // App Secret: también firma las peticiones y los avisos
+        'service_id' => '',   // Service ID: arma el enlace de autorización
+
+        // El enlace de autorización tal como lo da el Partner Center, si no
+        // es el de siempre. Con {service_id} y {state}. Vacío =
+        // https://services.tiktokshop.com/open/authorize?service_id={service_id}&state={state}
+        'url_autorizar' => '',
+
+        // La dirección pública del sistema, sin / al final. Vacío = la del
+        // navegador. De aquí sale la URL de retorno que se muestra.
+        'dominio'   => '',   // https://TU-DOMINIO
+
+        // Con qué se cifran las llaves de cada tienda y el App Secret de
+        // cada empresa. OBLIGATORIA si no hay app_secret arriba (solo
+        // in-house). Cambiarla obliga a reconectar todas las tiendas.
+        'llave_cifrado' => '',
+
+        'timeout'   => 25,
+    ],
 ];

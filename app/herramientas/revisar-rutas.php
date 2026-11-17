@@ -35,6 +35,9 @@ $aproposito = [
     '/Service/ConsultaClabe', '/Service/PagoClabe', '/Service/ConsultaReferencia',
     '/Service/PagoReferencia', '/Service/PagoLinea', '/Service/EntregarPagoLiga',
     '/Service/CancelaPago',
+    // Los avisos de TikTok Shop: llama un servidor de TikTok, sin sesión.
+    // Los protege la firma HMAC, que revisa AvisosTikTokControlador.
+    '/tiktok/aviso',
     // El panel bifurca según el nivel del rol.
     '/panel',
     // Sobre SÍ MISMO: cualquiera con sesión. Pedir permiso aquí dejaría a

@@ -53,6 +53,9 @@ final class Modulos
         'shopify'      => ['nombre' => 'Shopify', 'grupo' => 'Comercio', 'icono' => 'bolsa', 'ruta' => '/shopify',
                            'desc' => 'Conecta tu tienda de Shopify: lo que vendes allá se descuenta de tus existencias, y lo que vendes aquí se actualiza allá.',
                            'giros' => [], 'requiere' => 'inventario'],
+        'tiktok'       => ['nombre' => 'TikTok Shop', 'grupo' => 'Comercio', 'icono' => 'bolsa', 'ruta' => '/tiktok',
+                           'desc' => 'Conecta tu tienda de TikTok Shop: lo que vendes allá se descuenta de tus existencias, y lo que vendes aquí se actualiza allá.',
+                           'giros' => [], 'requiere' => 'inventario'],
         'cotizaciones' => ['nombre' => 'Cotizaciones', 'grupo' => 'Servicios', 'icono' => 'doc', 'ruta' => '/cotizaciones',
                            'desc' => 'Presupuestos que imprimes o mandas, y que se vuelven venta con un clic.',
                            'giros' => ['profesional']],
@@ -91,7 +94,7 @@ final class Modulos
      * Cuando se decida en qué planes entra, se agrega a `modulos` en
      * `config/planes.php` y se quita de aquí.
      */
-     const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre', 'tiendanube', 'shopify'];
+     const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre', 'tiendanube', 'shopify', 'tiktok'];
 
     private $cfg;
     private static $plan = null;   // [clave_plan => modulos|null] por petición
