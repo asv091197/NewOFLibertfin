@@ -581,7 +581,18 @@ $permisos = [
   '/tiendanube/vincular'      => 'editar.tiendanube',
   '/tiendanube/sincronizar'   => 'editar.tiendanube',
   '/tiendanube/publicar'      => 'editar.tiendanube',
-  '/tiktok'                   => 'ver.tiktok',
+  '/shopify'                  => 'ver.shopify',
+  // Conectar la tienda de la empresa es de administrador, como en Tienda Nube.
+  '/shopify/conectar'         => 'editar.ajustes',
+  '/shopify/retorno'          => 'editar.ajustes',
+  '/shopify/desconectar'      => 'editar.ajustes',
+  '/shopify/ajustes'          => 'editar.ajustes',
+  '/shopify/avisos'           => 'editar.ajustes',
+  '/shopify/importar'         => 'editar.shopify',
+  '/shopify/vincular'         => 'editar.shopify',
+  '/shopify/sincronizar'      => 'editar.shopify',
+  '/shopify/publicar'         => 'editar.shopify',
+  '/tiktok'                => 'ver.tiktok',
   // Las credenciales de la app, conectar y decidir de dónde sale lo que se
   // vende allá comprometen la tienda de la empresa: es de administrador.
   '/tiktok/credenciales'      => 'editar.ajustes',
@@ -720,6 +731,9 @@ $publicas = ['/login', '/login/confirmar', '/salir', '/registro', '/ayuda-acceso
     // Los de Mercado Libre: un servidor suyo, sin sesión. No traen datos,
     // solo qué cambió; se le vuelve a preguntar con la llave de la cuenta.
     '/mercadolibre/aviso',
+    // Los de Tienda Nube, por lo mismo. Su puerta es la firma HMAC del
+    // cuerpo (x-linkedstore-hmac-sha256), que revisa AvisosTnControlador.
+    '/tiendanube/aviso',
     // Los de Shopify: un servidor suyo, sin sesión. Su puerta es la firma
     // HMAC del cuerpo, que revisa el controlador (y contesta 401 si no vale).
     '/shopify/aviso',

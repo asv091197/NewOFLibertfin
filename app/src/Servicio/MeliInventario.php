@@ -520,7 +520,7 @@ final class MeliInventario
                 $res = ['estado' => $estado, 'nueva' => true, 'nota' => $nota];
             } elseif (in_array($estadoMl, ['cancelled', 'invalid'], true) && $aplicado && $antes === 'aplicada') {
                 foreach ($aplicado as $l) {
-                    $inv->moverPorMercadoLibre($l['producto_id'], $l['sucursal_id'], (float)$l['cantidad'],
+                    self::mover($inv, $l['producto_id'], $l['sucursal_id'], (float)$l['cantidad'],
                         'Orden ML #' . $ordenId . ' cancelada');
                 }
                 $guardar('devuelta', 'Cancelada en Mercado Libre: la mercancía regresó.');
@@ -568,7 +568,10 @@ final class MeliInventario
             if (!$pid) $pid = $this->porSku((string)($l['item']['seller_sku'] ?? $l['item']['seller_custom_field'] ?? ''));
             if (!$pid) { $faltan[] = (string)($l['item']['title'] ?? $item); continue; }
 
-            $inv->moverPorMercadoLibre($pid, $suc, -$cant, $nota);
+            if (!self::mover($inv, $pid, $suc, -$cant, $nota)) {
+                $faltan[] = (string)($l['item']['title'] ?? $item) . ' (no lleva existencias)';
+                continue;
+            }
             $aplicado[]= ['producto_id' => $pid, 'sucursal_id' => $suc, 'cantidad' => $cant];
         }
 
@@ -576,6 +579,22 @@ final class MeliInventario
         if ($faltan) $nota[] = 'Sin vincular: ' . implode(', ', array_slice($faltan, 0, 3)) . (count($faltan) > 3 ? '…' : '');
         if ($full)   $nota[] = $full . ' en Full (no se descuenta de la tienda)';
         return [$aplicado ?: null, implode(' · ', $nota)];
+    }
+
+    /**
+     * Mueve existencias por una orden de Mercado Libre: entrada o salida
+     * normal, con la orden en la nota. Corre dentro de la transacción de
+     * procesarOrden(). Si el producto no lleva existencias o la sucursal no
+     * sirve, no mueve nada y regresa false.
+     */
+    private static function mover(Inventario $inv, $pid, $suc, $cant, $nota)
+    {
+        try {
+            $inv->registrar($cant < 0 ? 'salida' : 'entrada', $pid, $suc, abs($cant), ['nota' => $nota]);
+            return true;
+        } catch (\InvalidArgumentException $e) {
+            return false;
+        }
     }
 
     private function porSku($sku)
