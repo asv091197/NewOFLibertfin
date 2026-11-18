@@ -15,7 +15,10 @@ use PDO;
  *     fotos y descripción. Casi todo sale del producto.
  *  3. Ficha técnica. Lo que exige ESA categoría (marca, modelo, volumen…).
  *     Cambia de una categoría a otra, así que se pregunta a Mercado Libre
- *     en el momento y el formulario se arma con lo que contesta.
+ *     en el momento y el formulario se arma con lo que contesta. Además
+ *     de lo obligatorio, se ofrecen las características secundarias
+ *     (opcionales) en una sección plegable; las que se dejan vacías no
+ *     se mandan.
  *
  * Al publicar, la publicación nace VINCULADA al producto (vinculo
  * 'publicado'): desde ahí se comporta igual que una traída con «Traer
@@ -118,9 +121,11 @@ final class MeliPublicar
     /**
      * De la lista cruda de Mercado Libre, lo que se pregunta y cómo.
      *
-     * Se pregunta lo obligatorio (required, catalog_required,
-     * conditional_required) y los de SIEMPRE. Lo oculto, de solo lectura o
-     * fijo no se pregunta: Mercado Libre lo pone.
+     * Principales: lo obligatorio (required, catalog_required,
+     * conditional_required) y los de SIEMPRE. Secundarias: todo lo demás que
+     * la categoría acepta (material, dimensiones…); son opcionales, pero
+     * mejoran la búsqueda y la ficha. Lo oculto, de solo lectura o fijo no
+     * se pregunta: Mercado Libre lo pone.
      */
     public static function normalizar(array $crudos)
     {
@@ -136,7 +141,7 @@ final class MeliPublicar
             // El atributo que define las fotos (Color) no trae «required»,
             // pero Mercado Libre lo exige al publicar.
             $obligatorio = !empty($t['required']) || !empty($t['catalog_required']) || !empty($t['defines_picture']);
-            if (!$obligatorio && empty($t['conditional_required']) && !in_array($id, self::SIEMPRE, true)) continue;
+            $secundario = !$obligatorio && empty($t['conditional_required']) && !in_array($id, self::SIEMPRE, true);
 
             $vt = (string)($a['value_type'] ?? 'string');
             $valores = [];
@@ -161,12 +166,18 @@ final class MeliPublicar
                 'unidades'    => $unidades,
                 'unidad'      => (string)($a['default_unit'] ?? ($unidades[0] ?? '')),
                 'obligatorio' => $obligatorio && $id !== 'GTIN',   // GTIN se cambia por EMPTY_GTIN_REASON
+                'secundario'  => $secundario,
                 'ayuda'       => (string)($a['hint'] ?? ($a['tooltip'] ?? '')),
                 'max'         => (int)($a['value_max_length'] ?? 255) ?: 255,
             ];
         }
-        // Lo obligatorio primero, y dentro, en el orden de Mercado Libre.
-        uasort($r, function ($x, $y) { return (int)$y['obligatorio'] - (int)$x['obligatorio']; });
+        // Lo obligatorio primero, luego los principales opcionales, al final
+        // los secundarios; dentro de cada grupo, en el orden de Mercado Libre.
+        $peso = function ($a) { return $a['obligatorio'] ? 0 : ($a['secundario'] ? 2 : 1); };
+        $orden = array_flip(array_keys($r));
+        uksort($r, function ($x, $y) use ($r, $peso, $orden) {
+            return ($peso($r[$x]) - $peso($r[$y])) ?: ($orden[$x] - $orden[$y]);
+        });
         return $r;
     }
 

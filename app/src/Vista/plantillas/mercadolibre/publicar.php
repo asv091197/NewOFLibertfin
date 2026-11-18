@@ -198,13 +198,15 @@ $volverA = $p ? '/servicios?editar=' . (int)$p['id'] : '/servicios';
     </div>
   </section>
 
-  <section class="card" style="margin-bottom:16px">
-    <header class="card-header">Ficha técnica</header>
-    <div class="lf-form" style="padding:14px 18px">
-      <?php if (!$categoria['atributos']): ?>
-        <p class="pista" style="margin:0">Esta categoría no pide datos técnicos.</p>
-      <?php endif; ?>
-      <?php foreach ($categoria['atributos'] as $id => $a):
+  <?php
+  $principales = array_filter($categoria['atributos'], function ($a) { return empty($a['secundario']); });
+  $secundarios = array_filter($categoria['atributos'], function ($a) { return !empty($a['secundario']); });
+  // Se abre sola si ya trae algo escrito o algún error (al regresar de un intento fallido).
+  $abrirSec = false;
+  foreach ($secundarios as $id => $a) {
+      if (trim((string)($f['attr'][$id] ?? '')) !== '' || !empty($errores['attr_' . $id])) { $abrirSec = true; break; }
+  }
+  $campoAttr = function ($id, $a) use ($f, $err) {
         $val = (string)($f['attr'][$id] ?? '');
         $nom = 'attr[' . $id . ']'; $dom = 'mlA_' . preg_replace('/[^A-Za-z0-9_]/', '', $id); ?>
         <div style="width:<?= $a['tipo'] === 'numero_unidad' ? '240' : '260' ?>px">
@@ -242,9 +244,29 @@ $volverA = $p ? '/servicios?editar=' . (int)$p['id'] : '/servicios';
           <?php if ($a['ayuda'] !== ''): ?><small class="lf-inv-cod" style="display:block"><?= P::e($a['ayuda']) ?></small><?php endif; ?>
           <?= $err('attr_' . $id) ?>
         </div>
-      <?php endforeach; ?>
+  <?php }; ?>
+
+  <section class="card" style="margin-bottom:16px">
+    <header class="card-header">Ficha técnica</header>
+    <div class="lf-form" style="padding:14px 18px">
+      <?php if (!$principales): ?>
+        <p class="pista" style="margin:0">Esta categoría no pide datos técnicos.</p>
+      <?php endif; ?>
+      <?php foreach ($principales as $id => $a) $campoAttr($id, $a); ?>
     </div>
   </section>
+
+  <?php if ($secundarios): ?>
+  <section class="card" style="margin-bottom:16px">
+    <details <?= $abrirSec ? 'open' : '' ?>>
+      <summary class="card-header" style="cursor:pointer">Características secundarias (<?= count($secundarios) ?>, opcionales)</summary>
+      <p class="pista" style="margin:10px 18px 0">No son obligatorias, pero Mercado Libre las muestra en la ficha y las usa en los filtros de búsqueda: entre más llenes, mejor se posiciona. Las vacías no se mandan.</p>
+      <div class="lf-form" style="padding:14px 18px">
+        <?php foreach ($secundarios as $id => $a) $campoAttr($id, $a); ?>
+      </div>
+    </details>
+  </section>
+  <?php endif; ?>
 
   <section class="card" style="margin-bottom:16px">
     <header class="card-header">Descripción</header>
