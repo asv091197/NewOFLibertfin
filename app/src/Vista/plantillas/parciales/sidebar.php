@@ -23,7 +23,7 @@ use LibertyFin\Datos\ConfigRepo;
 $deEmpresa = [
   ['grupo' => 'Operación'],
   ['ruta' => '/panel',           'icono' => 'panel',   'texto' => 'Panel',         'p' => 'ver.panel'],
-  ['ruta' => '/caja',       'icono' => 'caja',    'texto' => 'Caja',          'p' => 'cobrar'],
+  ['ruta' => '/caja',       'icono' => 'caja',    'texto' => 'Punto de Venta', 'p' => 'cobrar'],
   // Los módulos (Servicio\Modulos): solo si la empresa los tiene activos.
   ['ruta' => '/agenda',     'icono' => 'agenda',   'texto' => 'Agenda',        'p' => 'ver.agenda',       'mod' => 'agenda'],
   ['ruta' => '/ventas',     'icono' => 'venta',   'texto' => 'Ventas',        'p' => 'ver.ventas'],
