@@ -98,7 +98,16 @@ final class AmpliarVenta
 
             // Lo agregado también sale del inventario, de la sucursal de
             // quien lo agrega (ver RegistrarVenta).
-            (new Inventario($this->db))->descontarVenta($ventaId, $ticket->lineas(), $ctx['sucursal_id'] ?? null);
+            // Lo que está en preventa queda apartado (ver RegistrarVenta).
+            // Aquí no se cobra, así que no se revisa el anticipo mínimo.
+            $pv = new Preventas($this->db);
+            list($normales, $enPreventa) = $pv->separar($ticket->lineas());
+            (new Inventario($this->db))->descontarVenta($ventaId, $normales, $ctx['sucursal_id'] ?? null);
+            $pv->registrarVenta($ventaId, $enPreventa, [
+                'sucursal_id' => $ctx['sucursal_id'] ?? null,
+                'cliente_id'  => $v['cliente_id'] ?? null,
+                'en_linea'    => true,
+            ]);
             // Paquetes: con el cliente de la venta que se amplía.
             (new Paquetes($this->db))->registrarVenta($ventaId, $ticket->lineas(),
                 ['cliente_id' => $v['cliente_id'] ?? null, 'paquetes' => $ctx['paquetes'] ?? []]);

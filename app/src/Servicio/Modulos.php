@@ -41,6 +41,9 @@ final class Modulos
         'compras'      => ['nombre' => 'Compras a proveedor', 'grupo' => 'Comercio', 'icono' => 'camion', 'ruta' => '/compras',
                            'desc' => 'Haces el pedido, lo recibes y la mercancía entra sola al inventario.',
                            'giros' => ['tienda'], 'requiere' => 'inventario'],
+        'preventa'     => ['nombre' => 'Preventa', 'grupo' => 'Comercio', 'icono' => 'reloj', 'ruta' => '/preventas',
+                           'desc' => 'Vende lo que todavía no llega, con anticipo y fecha estimada. Las piezas salen del inventario al entregarlas.',
+                           'giros' => [], 'requiere' => 'inventario'],
         'envios'       => ['nombre' => 'Envíos a domicilio', 'grupo' => 'Comercio', 'icono' => 'camion', 'ruta' => '/envios',
                            'desc' => 'Cotizas con DHL, FedEx, Estafeta y las demás, imprimes la guía y rastreas el paquete, sin salir de la venta.',
                            'giros' => []],
@@ -94,7 +97,7 @@ final class Modulos
      * Cuando se decida en qué planes entra, se agrega a `modulos` en
      * `config/planes.php` y se quita de aquí.
      */
-     const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre', 'tiendanube', 'shopify', 'tiktok'];
+     const EN_TODO_PLAN = ['inventario', 'comisiones', 'envios', 'mercadolibre', 'tiendanube', 'shopify', 'tiktok', 'preventa'];
 
     private $cfg;
     private static $plan = null;   // [clave_plan => modulos|null] por petición

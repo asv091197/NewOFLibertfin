@@ -153,6 +153,10 @@ final class Permisos
         // TikTok Shop: igual que Shopify.
         'ver.tiktok'          => ['admin','inventario'],
         'editar.tiktok'       => ['admin','inventario'],
+        // Preventa: la ve y la entrega quien atiende el mostrador y quien
+        // recibe la mercancía. Entregar descuenta existencias.
+        'ver.preventas'       => ['admin','cajero','inventario'],
+        'entregar.preventa'   => ['admin','cajero','inventario'],
         'ver.agenda'          => ['admin','cajero'],
         'editar.agenda'       => ['admin','cajero'],
         'editar.gastos'    => ['admin','inventario'],

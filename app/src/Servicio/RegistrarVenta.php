@@ -92,7 +92,18 @@ final class RegistrarVenta
             // inventario (o al revés) es justo lo que luego no cuadra. Con
             // Inventario apagado no hace nada; con «No dejar vender» y sin
             // piezas, lanza y la venta no se guarda.
-            (new Inventario($this->db))->descontarVenta($ventaId, $ticket->lineas(), $ctx['sucursal_id'] ?? null);
+            //
+            // Lo que está en PREVENTA no sale todavía: queda apartado y sale
+            // del inventario al entregarse (ver Servicio\Preventas).
+            $pv = new Preventas($this->db);
+            list($normales, $enPreventa) = $pv->separar($ticket->lineas());
+            (new Inventario($this->db))->descontarVenta($ventaId, $normales, $ctx['sucursal_id'] ?? null);
+            $pv->registrarVenta($ventaId, $enPreventa, [
+                'sucursal_id' => $ctx['sucursal_id'] ?? null,
+                'cliente_id'  => $ctx['cliente_id'] ?? null,
+                'anticipo'    => $anticipo,
+                'en_linea'    => !empty($ctx['en_linea']),
+            ]);
             // Paquetes de sesiones: los que se venden quedan a nombre del
             // cliente; las sesiones que se usan, se gastan. Misma transacción.
             (new Paquetes($this->db))->registrarVenta($ventaId, $ticket->lineas(), $ctx);

@@ -112,6 +112,36 @@ if (!empty($envios)): ?>
 </section>
 <?php endif; ?>
 
+<?php /* Lo que se vendió en preventa: si ya se entregó o todavía se le debe. */
+if (!empty($preventas)):
+  $puedeEntregar = \LibertyFin\Dominio\Permisos::puede('entregar.preventa') && $v['estado'] !== 'cancelada'; ?>
+<section class="card" style="padding:14px 18px;margin-bottom:18px">
+  <div class="tit" style="margin-bottom:8px"><?= W::icono('reloj','16px') ?><b>Preventa</b></div>
+  <?php foreach ($preventas as $pv): ?>
+    <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px">
+      <span class="lf-mono"><b><?= P::e(\LibertyFin\Servicio\Inventario::conUnidad($pv['cantidad'], $pv['unidad_medida'] ?? '')) ?></b></span>
+      <span><?= P::e($pv['producto']) ?></span>
+      <span class="badge <?= $pv['estado'] === 'entregada' ? 'bg-success' : ($pv['estado'] === 'cancelada' ? 'bg-secondary' : 'bg-warning') ?>">
+        <?= P::e(\LibertyFin\Servicio\Preventas::ESTADOS[$pv['estado']] ?? $pv['estado']) ?></span>
+      <small class="pista">
+        <?php if ($pv['estado'] === 'entregada' && $pv['entregado_en']): ?>
+          el <?= P::e(date('d/m/Y', strtotime($pv['entregado_en']))) ?>
+        <?php elseif ($pv['estado'] === 'pendiente' && $pv['llegada_estimada']): ?>
+          llega aprox. el <?= P::e(date('d/m/Y', strtotime($pv['llegada_estimada']))) ?>
+        <?php endif; ?></small>
+      <span style="flex:1"></span>
+      <?php if ($pv['estado'] === 'pendiente' && $puedeEntregar): ?>
+        <form method="post" action="/preventas/<?= (int)$pv['id'] ?>/entregar" style="margin:0"
+              onsubmit="return confirm('¿Entregar al cliente? Las piezas salen del inventario.')">
+          <input type="hidden" name="token" value="<?= P::e($token) ?>">
+          <button class="btn btn-primary btn-sm" type="submit">Entregar</button>
+        </form>
+      <?php endif; ?>
+    </div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
+
 <?php if (!empty($trabajo)): $tr = $trabajo['t']; $estT = \LibertyFin\Servicio\Trabajos::ESTADOS; ?>
 <section class="card lf-trab-venta">
   <form method="post" action="/ventas/<?= (int)$v['id'] ?>/trabajo" class="lf-form">

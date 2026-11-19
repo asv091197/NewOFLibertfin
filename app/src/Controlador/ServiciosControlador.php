@@ -45,6 +45,8 @@ final class ServiciosControlador
             'aviso'     => $_SESSION['lf_aviso'] ?? null,
             'vigentes'  => $this->cuantasVigentes($db),
             'inventario'=> $this->inventarioDe($db, $editar),
+            // Preventa: null si la base todavía no tiene la migración 34.
+            'preventa'  => $this->preventaDe($db, $editar),
             // Lo que piden los módulos encendidos: duración (Agenda) y
             // sesiones de qué servicio (Paquetes).
             'modProducto' => $this->modProducto($db),
@@ -180,6 +182,7 @@ final class ServiciosControlador
             // quedó guardado y solo se avisa de la imagen.
             $msg .= $this->imagen($repo, $id);
             $msg .= $this->guardarInventario($db, $id);
+            $msg .= $this->guardarPreventa($db, $id);
             $msg .= $this->guardarModulos($db, $id);
             $this->volver($msg, 'ok');
         } catch (\InvalidArgumentException $e) {
@@ -275,6 +278,31 @@ final class ServiciosControlador
         } catch (\Throwable $e) {
             error_log('[LibertyFin] inventario del producto ' . $id . ': ' . $e->getMessage());
             return ' Pero el inventario no se pudo guardar.';
+        }
+    }
+
+    /** Lo de preventa del formulario, o null con el módulo apagado (o la base sin migrar). */
+    private function preventaDe($db, $productoId)
+    {
+        try {
+            $pv = new \LibertyFin\Servicio\Preventas($db);
+            return $pv->activa() ? $pv->deProducto($productoId) : null;
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] preventa en Productos: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /** Guarda lo de preventa del producto. Devuelve un texto para el aviso. */
+    private function guardarPreventa($db, $id)
+    {
+        if (empty($_POST['preventa_en_form']) || !(int)$id) return '';
+        try {
+            (new \LibertyFin\Servicio\Preventas($db))->guardarProducto($id, $_POST);
+            return '';
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] preventa del producto ' . $id . ': ' . $e->getMessage());
+            return ' Pero la preventa no se pudo guardar.';
         }
     }
 

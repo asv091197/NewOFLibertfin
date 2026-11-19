@@ -305,6 +305,60 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
     </script>
     <?php endif; ?>
 
+    <?php /* ── PREVENTA ──
+             Mientras esté encendida, lo que se venda de este producto no
+             sale del inventario: queda apartado y se entrega desde
+             Ventas → Preventas cuando llegue (Servicio\Preventas). */
+    if (!empty($preventa)):
+      $pvOn = !empty($preventa['preventa']);
+      $pvApartadas = (float)($preventa['apartadas'] ?? 0);
+    ?>
+    <div class="lf-prod-inv">
+      <input type="hidden" name="preventa_en_form" value="1">
+      <label class="lf-sw">
+        <input type="checkbox" name="preventa" value="1" id="pPre" <?= $pvOn ? 'checked' : '' ?>>
+        <i aria-hidden="true"></i>
+        <span><b>En preventa</b> <small>Se vende aunque no haya piezas. Se entrega cuando llegue.</small></span>
+      </label>
+      <div class="cuerpo" id="pPreC" <?= $pvOn ? '' : 'hidden' ?>>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="width:170px">
+            <label class="form-label" for="pPreLlega">Llega aprox.</label>
+            <input class="form-control" type="date" name="preventa_llegada" id="pPreLlega"
+                   value="<?= P::e($preventa['preventa_llegada'] ?? '') ?>">
+          </div>
+          <div style="width:150px">
+            <label class="form-label" for="pPreLim">Cupo <small>(opcional)</small></label>
+            <input class="form-control lf-mono" type="number" name="preventa_limite" id="pPreLim" min="0" step="0.001"
+                   value="<?= $preventa['preventa_limite'] !== null ? P::e(\LibertyFin\Servicio\Inventario::num($preventa['preventa_limite'])) : '' ?>"
+                   placeholder="Sin tope">
+          </div>
+          <div style="width:150px">
+            <label class="form-label" for="pPreAnt">Anticipo mínimo</label>
+            <input class="form-control lf-mono" type="number" name="preventa_anticipo" id="pPreAnt" min="0" max="100" step="0.01"
+                   value="<?= $preventa['preventa_anticipo'] !== null ? P::e((float)$preventa['preventa_anticipo']) : '' ?>"
+                   placeholder="% libre">
+          </div>
+        </div>
+        <p class="pista">
+          <?php if ($pvApartadas > 0): ?>
+            Ya se han prevendido <b class="lf-mono"><?= P::e(\LibertyFin\Servicio\Inventario::num($pvApartadas)) ?></b>.
+            Las que faltan por entregar están en <a href="/preventas?producto=<?= (int)($e['id'] ?? 0) ?>">Preventas</a>.
+          <?php else: ?>
+            El cupo cuenta todo lo prevendido. El anticipo es un porcentaje del importe de estos productos en el ticket.
+          <?php endif; ?>
+          Cuando ya tengas piezas para vender normal, apaga la casilla: las preventas pendientes se siguen entregando.
+        </p>
+      </div>
+    </div>
+    <script>
+    (function(){
+      var c = document.getElementById('pPre'), b = document.getElementById('pPreC');
+      if (c && b) c.addEventListener('change', function(){ b.hidden = !c.checked; });
+    })();
+    </script>
+    <?php endif; ?>
+
     <?php if (!empty($modProducto)): $mp = $modProducto; ?>
     <?php /* Lo que piden los módulos encendidos (Ajustes → Módulos). */ ?>
     <div class="lf-prod-mods">

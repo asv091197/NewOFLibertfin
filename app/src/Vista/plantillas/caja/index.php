@@ -116,6 +116,14 @@ $pcTodo  = array_values(array_filter(array_map(function ($id) use ($pc) {
         // Existencias: solo con Inventario encendido y si el producto las lleva.
         $ex = $inventario['existencias'][(int)$s['id']] ?? null;
         $hay = $ex !== null ? (float)$ex['existencia'] : null;
+        // En preventa no cuentan las existencias: se vende lo que no ha llegado.
+        $pre = $preventas[(int)$s['id']] ?? null;
+        if ($pre) {
+            $hay = null;
+            $titulo .= "\nPreventa" . ($pre['llegada'] ? ' · llega ' . date('d/m/Y', strtotime($pre['llegada'])) : '')
+                     . ($pre['anticipo'] ? ' · anticipo mínimo ' . rtrim(rtrim(number_format($pre['anticipo'], 2), '0'), '.') . ' %' : '')
+                     . ($pre['quedan'] !== null ? ' · quedan ' . \LibertyFin\Servicio\Inventario::num($pre['quedan']) . ' lugares' : '');
+        }
         if ($hay !== null) $titulo .= "\n" . ($hay > 0 ? 'Quedan ' . \LibertyFin\Servicio\Inventario::conUnidad($hay, $s['unidad_medida'] ?? '') : 'Agotado');
         // Por kilo, litro o metro: se vende en fracciones y el precio es por unidad.
         $frac = \LibertyFin\Servicio\Inventario::fraccionable($s['unidad_medida'] ?? '');
@@ -130,6 +138,7 @@ $pcTodo  = array_values(array_filter(array_map(function ($id) use ($pc) {
                 <?php if ($hay !== null): ?>data-hay="<?= number_format($hay, 3, '.', '') ?>"<?php endif; ?>
                 data-u="<?= P::e(\LibertyFin\Servicio\Inventario::abrev($s['unidad_medida'] ?? '')) ?>"
                 <?= $frac ? 'data-frac="1"' : '' ?>
+                <?php if ($pre): ?>data-preventa="1"<?php if ($pre['quedan'] !== null): ?> data-pre-quedan="<?= number_format($pre['quedan'], 3, '.', '') ?>"<?php endif; ?><?php endif; ?>
                 data-precio="<?= (float)$s['precio'] ?>">
           <?php /* Cuántas llevas de esta. Lo pinta el JS al cambiar el
                    ticket; nace vacío para que no parpadee un 0. */ ?>
@@ -137,6 +146,9 @@ $pcTodo  = array_values(array_filter(array_map(function ($id) use ($pc) {
           <?php if ($hay !== null): ?>
             <span class="lf-serv-hay<?= $hay <= 0 ? ' agotado' : ($hay <= (float)$ex['minimo'] ? ' bajo' : '') ?>">
               <?= $hay > 0 ? P::e(\LibertyFin\Servicio\Inventario::conUnidad($hay, $s['unidad_medida'] ?? '')) : 'Agotado' ?></span>
+          <?php endif; ?>
+          <?php if ($pre): ?>
+            <span class="lf-serv-hay lf-serv-preventa">Preventa<?= $pre['llegada'] ? ' · ' . P::e(date('d/m', strtotime($pre['llegada']))) : '' ?></span>
           <?php endif; ?>
           <?php if ($susPromos): ?>
             <span class="lf-serv-promo"><?= P::e($susPromos[0]['etiqueta']) ?><?= count($susPromos) > 1
@@ -834,7 +846,9 @@ $pcTodo  = array_values(array_filter(array_map(function ($id) use ($pc) {
   document.querySelectorAll('.lf-serv').forEach(function(b){
     CARTA[+b.dataset.id] = { nombre: b.dataset.nombre, precio: +b.dataset.precio,
                              hay: b.dataset.hay !== undefined ? parseFloat(b.dataset.hay) : null,
-                             u: b.dataset.u || '', frac: b.dataset.frac === '1' };
+                             u: b.dataset.u || '', frac: b.dataset.frac === '1',
+                             preventa: b.dataset.preventa === '1',
+                             preQuedan: b.dataset.preQuedan !== undefined ? parseFloat(b.dataset.preQuedan) : null };
   });
 
   /* ── EXISTENCIAS (solo con Inventario encendido) ──
@@ -847,6 +861,14 @@ $pcTodo  = array_values(array_filter(array_map(function ($id) use ($pc) {
   /* ¿Se puede agregar una más? Si no, avisa y dice que no. */
   function cabeUnaMas(id){
     var c = CARTA[id];
+    // Preventa: el tope no son las existencias sino los lugares que quedan.
+    // El servidor lo vuelve a revisar al cobrar.
+    if (c && c.preventa) {
+      if (c.preQuedan === null || enTicket(id) + 1 <= c.preQuedan + 0.0005) return true;
+      mostrarAviso('<b>' + escP(c.nombre) + ': se acabó la preventa</b>'
+        + '<small>' + (c.preQuedan > 0 ? 'Quedan ' + numInv(c.preQuedan) + ' lugares y ya están en el ticket.' : 'Ya no quedan lugares.') + '</small>', 'mal');
+      return false;
+    }
     if (!c || c.hay === null || !INV_BLOQUEA) return true;
     if (enTicket(id) + 1 <= c.hay + 0.0005) return true;
     mostrarAviso('<b>' + escP(c.nombre) + ': ' + (c.hay > 0 ? 'no hay más' : 'agotado') + '</b>'

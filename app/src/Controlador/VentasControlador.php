@@ -112,9 +112,22 @@ final class VentasControlador
             // Con «Envíos» encendido: las guías de esta venta.
             'envios'      => $this->envios($db, $id),
             'puedeEnviar' => $this->moduloEnvios(),
+            // Lo de esta venta que se vendió en preventa y si ya se entregó.
+            'preventas'  => $this->preventas($db, $id),
             'aviso'      => $_SESSION['lf_aviso'] ?? null,
         ]);
         unset($_SESSION['lf_aviso']);
+    }
+
+    /** Las preventas de la venta; vacío si la base no las tiene. */
+    private function preventas($db, $id)
+    {
+        try {
+            return (new \LibertyFin\Servicio\Preventas($db))->deVenta($id);
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] preventas de la venta ' . (int)$id . ': ' . $e->getMessage());
+            return [];
+        }
     }
 
     /** El seguimiento de la venta y el equipo, o null con el módulo apagado. */
@@ -375,6 +388,8 @@ final class VentasControlador
             'venta'   => $venta,
             'lineas'  => $repo->lineas($id),
             'promos'  => (new \LibertyFin\Servicio\Promociones($db))->deVenta($id),
+            // [producto_id => preventa], para la leyenda «Preventa · entrega aprox.».
+            'preventas' => array_column($this->preventas($db, $id), null, 'producto_id'),
             'empresa' => $empresa,
             'fiscal'  => (bool)$fiscal,
             'regla'   => $reglaEmpresa,

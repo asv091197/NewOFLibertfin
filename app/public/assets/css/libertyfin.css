@@ -4397,6 +4397,8 @@ form[data-lf-ticket-cambio] .form-select{width:100%}
   box-shadow:0 1px 4px rgba(0,0,0,.14);pointer-events:none}
 .lf-serv-hay.bajo{background:var(--lf-amb);color:#fff}
 .lf-serv-hay.agotado{background:var(--lf-rojo);color:#fff;font-family:var(--lf-font)}
+/* Preventa: se vende sin existencias, con fecha estimada. */
+.lf-serv-hay.lf-serv-preventa{background:var(--lf-info);color:#fff;font-family:var(--lf-font)}
 .lf-linea-hay,.lf-linea .lf-linea-hay{display:block;margin-top:4px;font-size:11.5px;font-weight:600;color:var(--lf-rojo)}
 .lf-promo-aviso.mal .ico{background:var(--lf-rojo-soft);color:var(--lf-rojo)}
 /* Producto: «Lleva existencias». */

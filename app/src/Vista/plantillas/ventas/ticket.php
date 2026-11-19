@@ -146,6 +146,11 @@ body{font-family:'Google Sans',system-ui,sans-serif;background:#f1f4f2;
       <div class="l">
         <span><b><?= P::e($l['producto'] ?: 'Producto') ?></b>
           <small><?= (float)$l['cantidad'] ?> × <?= D::pesos($l['precio_unitario']) ?></small>
+          <?php $pvL = $preventas[(int)$l['producto_id']] ?? null;
+          if ($pvL): ?>
+            <small>Preventa<?= $pvL['estado'] === 'entregada' ? ' · entregada'
+                : ($pvL['llegada_estimada'] ? ' · entrega aprox. ' . P::e(date('d/m/Y', strtotime($pvL['llegada_estimada']))) : ' · por entregar') ?></small>
+          <?php endif; ?>
           <?php if ((float)($l['descuento'] ?? 0) > 0.004): ?>
             <small><?= P::e(($promos[(int)$l['producto_id']] ?? '') ?: 'Descuento') ?>
               −<?= D::pesos($l['descuento']) ?></small>

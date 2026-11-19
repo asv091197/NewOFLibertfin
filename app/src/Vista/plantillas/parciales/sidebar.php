@@ -27,6 +27,7 @@ $deEmpresa = [
   // Los módulos (Servicio\Modulos): solo si la empresa los tiene activos.
   ['ruta' => '/agenda',     'icono' => 'agenda',   'texto' => 'Agenda',        'p' => 'ver.agenda',       'mod' => 'agenda'],
   ['ruta' => '/ventas',     'icono' => 'venta',   'texto' => 'Ventas',        'p' => 'ver.ventas'],
+  ['ruta' => '/preventas',  'icono' => 'reloj',   'texto' => 'Preventas',     'p' => 'ver.preventas',    'mod' => 'preventa'],
   ['ruta' => '/clientes',   'icono' => 'cliente', 'texto' => 'Clientes',      'p' => 'ver.clientes'],
   ['ruta' => '/cotizaciones','icono' => 'doc',    'texto' => 'Cotizaciones',  'p' => 'ver.cotizaciones', 'mod' => 'cotizaciones'],
   ['ruta' => '/seguimiento','icono' => 'tablero',  'texto' => 'Trabajos',      'p' => 'ver.seguimiento',  'mod' => 'seguimiento'],

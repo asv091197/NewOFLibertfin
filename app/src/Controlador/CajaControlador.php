@@ -41,6 +41,9 @@ final class CajaControlador
             // Existencias de esta sucursal (solo con Inventario encendido):
             // la tarjeta dice cuántas quedan y Caja avisa si no alcanzan.
             'inventario'=> $this->inventarioCaja($db),
+            // Productos en preventa: se venden sin existencias, con su
+            // fecha estimada y su anticipo mínimo (Servicio\Preventas).
+            'preventas' => $this->preventasCaja($db),
             // Lo que llega armado: cotización, cita o cliente desde su ficha.
             'precarga'  => $this->precarga($db, (new \LibertyFin\Datos\ConfigRepo($db))->caja()),
             // Los paquetes de sesiones solo se ofrecen con el módulo encendido.
@@ -179,6 +182,17 @@ final class CajaControlador
         } catch (\Throwable $e) {
             error_log('[LibertyFin] inventario en Caja: ' . $e->getMessage());
             return null;
+        }
+    }
+
+    /** Los productos en preventa: [id => llegada, anticipo, quedan]. Vacío si falla. */
+    private function preventasCaja($db)
+    {
+        try {
+            return (new \LibertyFin\Servicio\Preventas($db))->catalogo();
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] preventas en Caja: ' . $e->getMessage());
+            return [];
         }
     }
 
@@ -355,6 +369,9 @@ final class CajaControlador
                 'concepto_gasto' => trim($_POST['concepto_gasto'] ?? ''),
                 // Las sesiones de paquete que usa (Servicio\Paquetes).
                 'paquetes'       => $usaPaquete,
+                // Con liga el anticipo es 0 a propósito: la preventa no le
+                // exige el mínimo, el cliente paga por la liga.
+                'en_linea'       => $enLineaPedida && !$sinLiga,
             ]);
         } catch (\InvalidArgumentException $e) {
             $this->volver($e->getMessage(), 'error');

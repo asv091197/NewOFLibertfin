@@ -30,7 +30,7 @@ use PDO;
 final class Migraciones
 {
     /** Súbelo al agregar una migración nueva. */
-    const VERSION = 33;
+    const VERSION = 34;
 
     /**
      * La versión vive en `lf_ajustes`, no en `sistema_config`.
@@ -1886,6 +1886,50 @@ final class Migraciones
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
+    /**
+     * 34 · Preventa: productos que se venden antes de tenerlos.
+     *
+     *  · `productos.preventa`: mientras esté en 1, lo que se venda del
+     *    producto no sale del inventario: queda apartado en `lf_preventas`.
+     *  · `preventa_llegada`: la fecha estimada que se le dice al cliente.
+     *  · `preventa_limite`: cuántas se pueden prevender (NULL = sin tope).
+     *  · `preventa_anticipo`: % mínimo de anticipo al cobrar (NULL = libre).
+     *  · `lf_preventas`: cada pieza prevendida y si ya se entregó. Al
+     *    entregarla, recién sale del inventario, con el venta_id original.
+     */
+    private static function v34(PDO $db)
+    {
+        $cols = [
+            'preventa'          => "TINYINT(1) NOT NULL DEFAULT 0",
+            'preventa_llegada'  => "DATE NULL DEFAULT NULL",
+            'preventa_limite'   => "DECIMAL(12,3) NULL DEFAULT NULL",
+            'preventa_anticipo' => "DECIMAL(5,2) NULL DEFAULT NULL",
+        ];
+        foreach ($cols as $c => $def) {
+            if (!self::hayColumna($db, 'productos', $c)) {
+                $db->exec("ALTER TABLE productos ADD COLUMN $c $def");
+            }
+        }
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_preventas (
+                id               INT AUTO_INCREMENT PRIMARY KEY,
+                venta_id         INT NOT NULL,
+                producto_id      INT NOT NULL,
+                sucursal_id      INT NULL DEFAULT NULL,
+                cliente_id       INT NULL DEFAULT NULL,
+                cantidad         DECIMAL(12,3) NOT NULL,
+                estado           VARCHAR(12) NOT NULL DEFAULT 'pendiente',
+                llegada_estimada DATE NULL DEFAULT NULL,
+                creado_en        DATETIME NOT NULL,
+                entregado_en     DATETIME NULL DEFAULT NULL,
+                entregado_por    INT NULL DEFAULT NULL,
+                KEY ix_pv_producto (producto_id, estado),
+                KEY ix_pv_venta (venta_id),
+                KEY ix_pv_estado (estado)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
     /** Lo que hace cada versión, para mostrarlo en Mantenimiento. */
     const DESCRIPCIONES = [
         1 => 'Tabla de ajustes propia (lf_ajustes)',
@@ -1920,5 +1964,6 @@ final class Migraciones
         31 => 'Tienda Nube: tienda en línea por empresa, variantes vinculadas a productos y órdenes que descuentan existencias',
         32 => 'Shopify: tienda en línea por empresa, variantes vinculadas a productos por ubicación y órdenes que descuentan existencias',
         33 => 'TikTok Shop: tienda por empresa (con app propia o la de LibertyFin), SKU vinculados a productos por almacén y órdenes que descuentan existencias',
+        34 => 'Preventa: productos que se venden antes de tenerlos, con fecha estimada, cupo, anticipo mínimo y entrega posterior',
     ];
 }

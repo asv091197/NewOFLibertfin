@@ -68,6 +68,11 @@ final class CancelarVenta
             $this->siHay("lf_inventario_movimientos", function () use ($ventaId) {
                 (new Inventario($this->db, ['activo' => 'si']))->devolverVenta($ventaId, 'Venta cancelada');
             });
+            // Lo prevendido que no se entregó ya no se debe. Lo entregado
+            // ya volvió arriba con devolverVenta (salió con este venta_id).
+            $this->siHay("lf_preventas", function () use ($ventaId) {
+                (new Preventas($this->db))->cancelarDeVenta($ventaId);
+            });
             $this->siHay("lf_paquete_usos", function () use ($ventaId) {
                 (new Paquetes($this->db))->deshacerVenta($ventaId);
             });

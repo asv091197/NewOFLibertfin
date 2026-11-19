@@ -355,6 +355,10 @@ $r->post('/agenda/guardar',              ['LibertyFin\Controlador\AgendaControla
 $r->post('/agenda/estado',               ['LibertyFin\Controlador\AgendaControlador', 'estado']);
 $r->post('/agenda/horario',              ['LibertyFin\Controlador\AgendaControlador', 'horario']);
 $r->get('/caja/paquetes',                ['LibertyFin\Controlador\CajaControlador', 'paquetes']);
+// Preventa: lo vendido que falta por entregar.
+$r->get('/preventas',                    ['LibertyFin\Controlador\PreventasControlador', 'index']);
+$r->post('/preventas/llegada',           ['LibertyFin\Controlador\PreventasControlador', 'llegada']);
+$r->post('/preventas/{id}/entregar',     ['LibertyFin\Controlador\PreventasControlador', 'entregar']);
 $r->get('/bienvenida',         ['LibertyFin\Controlador\BienvenidaControlador', 'index']);
 $r->post('/bienvenida',        ['LibertyFin\Controlador\BienvenidaControlador', 'guardar']);
 $r->get('/inventario',         ['LibertyFin\Controlador\InventarioControlador', 'index']);
@@ -621,6 +625,9 @@ $permisos = [
   '/agenda/estado'          => 'editar.agenda',
   '/agenda/horario'         => 'editar.ajustes',
   '/caja/paquetes'          => 'cobrar',
+  '/preventas'              => 'ver.preventas',
+  '/preventas/llegada'      => 'editar.servicios',
+  '/preventas/{id}/entregar'=> 'entregar.preventa',
   '/inventario'             => 'ver.inventario',
   '/inventario/mover'       => 'editar.inventario',
   '/reportes'               => 'ver.reportes',
