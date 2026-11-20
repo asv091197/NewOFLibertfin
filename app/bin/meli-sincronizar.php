@@ -131,7 +131,9 @@ foreach ($cuentas as $f) {
 
         $r = $srv->sincronizar(200);
         bien($r['revisadas'] . ' órdenes revisadas · ' . $r['aplicadas'] . ' descontadas · ' . $r['devueltas'] . ' devueltas · '
-             . $r['enviadas'] . ' existencias mandadas' . ($r['fallas'] ? ' · ' . c($r['fallas'] . ' con error', 'r') : '')
+             . $r['enviadas'] . ' existencias mandadas'
+             . ($r['eliminadas'] !== null ? ' · ' . $r['eliminadas'] . ' eliminadas allá' : '')
+             . ($r['fallas'] ? ' · ' . c($r['fallas'] . ' con error', 'r') : '')
              . ($r['quedan'] ? ' · quedan más para la siguiente vuelta' : ''));
         if ($r['fallas']) $fallos++;
     } catch (\Throwable $e) {

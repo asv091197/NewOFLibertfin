@@ -330,6 +330,7 @@ final class MercadoLibreControlador
             if ($r['aplicadas'])  $partes[] = $r['aplicadas'] . ' descontadas';
             if ($r['devueltas'])  $partes[] = $r['devueltas'] . ' canceladas que regresaron mercancía';
             if ($r['enviadas'])   $partes[] = $r['enviadas'] . ' existencias mandadas';
+            if (!empty($r['eliminadas'])) $partes[] = $r['eliminadas'] . ' publicaciones eliminadas en Mercado Libre';
             if ($r['fallas'])     $partes[] = $r['fallas'] . ' con error';
             $this->volver('Listo: ' . implode(', ', $partes) . ($r['quedan'] ? '. Quedan más pendientes: vuelve a sincronizar.' : '.'),
                           $r['fallas'] ? 'aviso' : 'ok', Peticion::opcion('t', array_keys(self::PESTANAS), 'publicaciones'));

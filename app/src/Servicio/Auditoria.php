@@ -63,6 +63,8 @@ final class Auditoria
         'empresa.alta'      => 'Dio de alta una empresa',
         'seccion.alternar'  => 'Encendió o apagó una sección',
         'sesion.reemplazar' => 'Cerró su sesión en otro dispositivo al entrar',
+        'meli.vencida'      => 'Venció la autorización de Mercado Libre',
+        'meli.eliminada'    => 'Se eliminó una publicación en Mercado Libre',
     ];
 
     private static $db = null;

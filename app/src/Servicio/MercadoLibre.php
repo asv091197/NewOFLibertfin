@@ -112,6 +112,10 @@ final class MercadoLibre
 
     public function error() { return $this->ultimoError; }
     public function http()  { return $this->ultimoHttp; }
+
+    /** ¿La última idsDePublicaciones() trajo la lista ENTERA? Ver ahí. */
+    private $listaCompleta = false;
+    public function listaCompleta() { return $this->listaCompleta; }
     public function espiar(callable $f) { $this->espia = $f; return $this; }
 
     // ════════════════════════════════════════════════════════
@@ -226,23 +230,44 @@ final class MercadoLibre
      * Con la búsqueda normal Mercado Libre corta en mil (offset máximo).
      * El modo `scan` no tiene ese tope: se pide en tandas de cien con un
      * `scroll_id` hasta que deja de devolver resultados.
+     *
+     * Las publicaciones ELIMINADAS ya no vienen aquí. Por eso lo que falta
+     * se da por borrado, pero solo si la lista llegó entera: si se cortó a
+     * medias (red, 429, el tope) faltarían publicaciones vivas, y marcarlas
+     * como borradas las desvincularía. listaCompleta() dice cuál fue.
      */
     public function idsDePublicaciones($token, $userId, $tope = 5000)
     {
+        $this->listaCompleta = false;
         $ids = [];
         $scroll = '';
+        $completa = false;
         for ($vuelta = 0; $vuelta < 100 && count($ids) < $tope; $vuelta++) {
             $q = '/users/' . rawurlencode((string)$userId) . '/items/search?search_type=scan&limit=100'
                . ($scroll !== '' ? '&scroll_id=' . rawurlencode($scroll) : '');
             $r = $this->llamar('GET', $q, $token);
             if (!is_array($r)) return $ids ?: null;
             $lote = (array)($r['results'] ?? []);
-            if (!$lote) break;
+            if (!$lote) { $completa = true; break; }
             foreach ($lote as $id) $ids[] = (string)$id;
             $scroll = (string)($r['scroll_id'] ?? '');
-            if ($scroll === '') break;
+            if ($scroll === '') { $completa = true; break; }
         }
+        $this->listaCompleta = $completa;
         return array_values(array_unique($ids));
+    }
+
+    /**
+     * ¿Esta publicación ya no existe para el vendedor?
+     *
+     * Al eliminarla en Mercado Libre, /items/ID la sigue dando un tiempo
+     * como `closed` con `sub_status` «deleted»; después contesta 404.
+     * «Finalizada» a secas NO es eliminada: se puede volver a publicar.
+     */
+    public static function eliminada(array $item)
+    {
+        if (!empty($item['deleted'])) return true;
+        return in_array('deleted', array_map('strval', (array)($item['sub_status'] ?? [])), true);
     }
 
     /**

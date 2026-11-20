@@ -205,16 +205,17 @@ final class MeliInventario
         $ids = $this->api->idsDePublicaciones($token, $c['meli_user_id']);
         if ($ids === null) throw new \RuntimeException($this->api->error() ?: 'No se pudieron leer las publicaciones.');
 
+        $completa = $this->api->listaCompleta();
+
         $renglones = 0;
         foreach (array_chunk($ids, 100) as $lote) {
             foreach ($this->api->publicaciones($token, $lote) as $item) {
-                foreach (self::renglonesDe($item) as $r) {
-                    $this->repo->guardarPublicacion($r);
-                    $renglones++;
-                }
+                if ($this->guardarItem($item)) $renglones += count(self::renglonesDe($item));
             }
         }
-        if ($ids) $this->repo->marcarAusentes($ids);
+        // Solo con la lista entera: si se cortó, lo que falta puede estar vivo.
+        if ($ids && $completa) $this->repo->marcarAusentes($ids);
+        if ($completa) $this->anotarRevisionEliminadas();
         $vinculadas = $this->autoVincular();
         $this->repo->anotarError(null);
         return ['publicaciones' => count($ids), 'renglones' => $renglones, 'vinculadas' => $vinculadas];
@@ -608,29 +609,119 @@ final class MeliInventario
         return count($ids) === 1 ? (int)$ids[0] : 0;
     }
 
-    /** Un aviso de «cambió esta publicación»: solo se refresca lo que dice Mercado Libre. */
+    /**
+     * Un aviso de «cambió esta publicación»: se refresca lo que dice
+     * Mercado Libre, y si la eliminaron, se refleja aquí.
+     */
     public function refrescarPublicacion($itemId)
     {
         $token = $this->token();
         if ($token === '') return false;
         $item = $this->api->publicacion($token, $itemId);
-        if (!is_array($item)) return false;
+        if (!is_array($item)) {
+            // Pasado un tiempo, una publicación eliminada contesta 404.
+            if (in_array($this->api->http(), [404, 410], true)) {
+                $n = $this->repo->marcarItemAusente($itemId);
+                if ($n) \LibertyFin\Servicio\Auditoria::anota('meli.eliminada', 'Mercado Libre', null,
+                    'Publicación ' . $itemId . ' eliminada en Mercado Libre', $this->db);
+                return true;
+            }
+            return false;
+        }
+        $this->guardarItem($item, true);
+        return true;
+    }
+
+    /**
+     * Guarda una publicación tal como viene de Mercado Libre. Si está
+     * eliminada, la marca así; si perdió variaciones, esas también.
+     *
+     * @param bool $soloExistencia true desde un aviso: a los renglones que
+     *        ya existen solo se les refresca existencia y estado.
+     * @return bool false si la publicación está eliminada
+     */
+    private function guardarItem(array $item, $soloExistencia = false)
+    {
+        $itemId = (string)($item['id'] ?? '');
+        if ($itemId === '') return false;
+
+        if (MercadoLibre::eliminada($item)) {
+            if ($this->repo->marcarItemAusente($itemId)) {
+                \LibertyFin\Servicio\Auditoria::anota('meli.eliminada', 'Mercado Libre', null,
+                    'Publicación ' . $itemId . ' eliminada en Mercado Libre', $this->db);
+            }
+            return false;
+        }
+
+        $vistas = [];
         foreach (self::renglonesDe($item) as $r) {
-            if ($this->repo->porItem($r['item_id'], $r['variacion_id'])) {
+            $vistas[] = (int)$r['variacion_id'];
+            $hay = $this->repo->porItem($r['item_id'], $r['variacion_id']);
+            if ($soloExistencia && $hay && $hay['estado_ml'] !== 'ausente') {
                 $this->repo->anotarStockMl($r['item_id'], $r['variacion_id'], $r['stock_ml'], $r['estado_ml']);
             } else {
                 $this->repo->guardarPublicacion($r);
             }
         }
+        $this->repo->marcarVariacionesAusentes($itemId, $vistas);
         return true;
     }
 
-    /** Todo: órdenes primero (bajan existencias), luego mandar lo pendiente. */
+    // ── Las eliminadas cuyo aviso no llegó ──────────────────────
+
+    /** Cada cuánto la tarea periódica compara la lista completa. */
+    const REVISAR_ELIMINADAS_CADA = 3600;
+
+    /**
+     * El aviso de una eliminación puede perderse como cualquier otro. Esto
+     * pide SOLO la lista de ids (cien por llamada, sin el detalle de cada
+     * publicación) y marca como eliminadas las que ya no vienen.
+     *
+     * Corre como mucho una vez por hora: con miles de publicaciones son
+     * decenas de llamadas, y una eliminación no tiene la prisa de una venta.
+     *
+     * @return int|null cuántas se marcaron; null si no tocaba o no se pudo
+     */
+    public function revisarEliminadas($forzar = false)
+    {
+        if (!$forzar) {
+            $ultima = strtotime((string)self::ajuste($this->db, 'meli.eliminadas_revisadas'));
+            if ($ultima && time() - $ultima < self::REVISAR_ELIMINADAS_CADA) return null;
+        }
+        $token = $this->token();
+        $c = $this->cuenta();
+        if ($token === '' || !$c) return null;
+
+        $ids = $this->api->idsDePublicaciones($token, $c['meli_user_id']);
+        if ($ids === null || !$this->api->listaCompleta()) return null;   // se reintenta en la siguiente vuelta
+        // Una lista vacía con publicaciones guardadas huele a falla, no a «las borró todas».
+        if (!$ids) { $this->anotarRevisionEliminadas(); return 0; }
+
+        $n = $this->repo->marcarAusentes($ids);
+        if ($n) \LibertyFin\Servicio\Auditoria::anota('meli.eliminada', 'Mercado Libre', null,
+            $n . ' publicación(es) ya no existen en Mercado Libre', $this->db);
+        $this->anotarRevisionEliminadas();
+        return $n;
+    }
+
+    private function anotarRevisionEliminadas()
+    {
+        try {
+            $this->db->prepare("INSERT INTO lf_ajustes (clave, valor, actualizado) VALUES ('meli.eliminadas_revisadas', ?, NOW())
+                                ON DUPLICATE KEY UPDATE valor = VALUES(valor), actualizado = NOW()")
+                     ->execute([date('Y-m-d H:i:s')]);
+        } catch (\Throwable $e) { /* sin lf_ajustes: se revisará en cada vuelta */ }
+    }
+
+    /** Todo: órdenes primero (bajan existencias), luego mandar lo pendiente, y al final las eliminadas. */
     public function sincronizar($tope = 200)
     {
         $o = $this->revisarOrdenes();
         $e = $this->empujarPendientes($tope);
-        return $o + $e;
+        $b = null;
+        try { $b = $this->revisarEliminadas(); }
+        catch (\Throwable $ex) { error_log('[LibertyFin] Mercado Libre, eliminadas: ' . $ex->getMessage()); }
+        return $o + $e + ['eliminadas' => $b];
     }
 
     private function exigirToken()

@@ -24,6 +24,7 @@ final class MeliRepo extends Repo
         'closed'       => 'Finalizada',
         'under_review' => 'En revisión',
         'inactive'     => 'Inactiva',
+        'ausente'      => 'Eliminada',
     ];
 
     // ── La cuenta ───────────────────────────────────────────────
@@ -144,14 +145,49 @@ final class MeliRepo extends Repo
         ]);
     }
 
+    /**
+     * Lo que se hace con una publicación eliminada en Mercado Libre: queda
+     * como «ausente» y DESVINCULADA. Ya no tiene producto, así que no se le
+     * mandan existencias ni descuenta nada.
+     */
+    const ELIMINAR = "estado_ml = 'ausente', pendiente = 0, producto_id = NULL, vinculo = NULL, error = NULL,
+                      actualizado_en = NOW()";
+
     /** Lo que ya no vino al importar: la publicación se borró en Mercado Libre. */
     public function marcarAusentes(array $vistos)
     {
         if (!$vistos) return 0;
         $m = implode(',', array_fill(0, count($vistos), '?'));
-        $st = $this->db->prepare("UPDATE lf_meli_publicaciones SET estado_ml = 'ausente', pendiente = 0
+        $st = $this->db->prepare("UPDATE lf_meli_publicaciones SET " . self::ELIMINAR . "
                                    WHERE item_id NOT IN ($m) AND estado_ml <> 'ausente'");
         $st->execute(array_values($vistos));
+        return $st->rowCount();
+    }
+
+    /**
+     * Se eliminó en Mercado Libre: se desvincula (ver ELIMINAR). El renglón
+     * NO se borra porque las órdenes viejas lo siguen nombrando.
+     */
+    public function marcarItemAusente($itemId)
+    {
+        $st = $this->db->prepare("UPDATE lf_meli_publicaciones SET " . self::ELIMINAR . "
+                                   WHERE item_id = ? AND estado_ml <> 'ausente'");
+        $st->execute([(string)$itemId]);
+        return $st->rowCount();
+    }
+
+    /** Las variaciones de una publicación que ya no vinieron (se borró una talla, un color…). */
+    public function marcarVariacionesAusentes($itemId, array $vistas)
+    {
+        $p = [(string)$itemId];
+        $extra = '';
+        if ($vistas) {
+            $extra = ' AND variacion_id NOT IN (' . implode(',', array_fill(0, count($vistas), '?')) . ')';
+            $p = array_merge($p, array_map('intval', array_values($vistas)));
+        }
+        $st = $this->db->prepare("UPDATE lf_meli_publicaciones SET " . self::ELIMINAR . "
+                                   WHERE item_id = ? AND estado_ml <> 'ausente'" . $extra);
+        $st->execute($p);
         return $st->rowCount();
     }
 
