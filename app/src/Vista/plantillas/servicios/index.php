@@ -9,8 +9,19 @@ $tot = 0; foreach ($areas as $a) $tot += (float)$a['monto'];
 if (empty($_SESSION['lf_token'])) $_SESSION['lf_token'] = bin2hex(random_bytes(16));
 $token = $_SESSION['lf_token'];
 $e = $editando;
-$qs = function (array $x = []) use ($desde,$hasta,$buscar) {
-    return '?' . http_build_query(array_merge(['desde'=>$desde,'hasta'=>$hasta,'q'=>$buscar], $x)); };
+// Los filtros vigentes viajan en cada enlace: paginar o editar no los pierde.
+$fBase = array_filter(['estado' => $filtro['estado'] ?? '', 'marca' => $filtro['marca'] ?? '',
+                       'area' => (int)($filtro['area'] ?? 0) ?: '', 'tipo' => $filtro['tipo'] ?? ''],
+                      function ($v) { return $v !== ''; });
+$qs = function (array $x = []) use ($desde,$hasta,$buscar,$fBase) {
+    return '?' . http_build_query(array_filter(array_merge(['desde'=>$desde,'hasta'=>$hasta,'q'=>$buscar], $fBase, $x),
+                                               function ($v) { return $v !== '' && $v !== null; })); };
+// A dónde volver después de cambiar el estado, duplicar o borrar desde la lista.
+$volverQ = $qs(['p' => $pagina > 1 ? $pagina : '']);
+// El estado como se guardó (lo que se elige en el formulario): «agotado» a
+// mano es distinto de quedarse sin existencias, que se calcula solo.
+$estadoE = !$e ? 'activo' : (!(int)($e['activo'] ?? 1) ? 'inactivo' : (!empty($e['agotado']) ? 'agotado' : 'activo'));
+$ESTADO_BADGE = ['activo' => 'bg-success', 'agotado' => 'bg-warning', 'inactivo' => 'bg-secondary'];
 ?>
 
 <?php P::parcial('servicios/_pestanas', ['actual' => 'catalogo', 'vigentes' => $vigentes ?? 0]); ?>
@@ -88,10 +99,38 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
       <input class="form-control" name="marca" id="pMarca" maxlength="100"
              value="<?= P::e($e['marca'] ?? '') ?>" list="lMarcas" autocomplete="off">
       <datalist id="lMarcas">
-        <?php foreach (array_unique(array_filter(array_column($catalogo ?? [], 'marca'))) as $m): ?>
+        <?php foreach (array_unique(array_merge($opcionesFiltro['marcas'] ?? [],
+                       array_filter(array_column($catalogo ?? [], 'marca')))) as $m): ?>
           <option value="<?= P::e($m) ?>"></option>
         <?php endforeach; ?>
       </datalist>
+    </div>
+    <?php /* Tipo de producto: por lo que filtran Productos, Existencias y
+             Conteo. Ya existía en la base (el sistema anterior ponía
+             «Estandar» o «Servicio»); se escribe libre, con sugerencias. */
+    $tipoE = (string)($e['tipo_producto'] ?? '');
+    $tipoE = ($tipoE === '' || strcasecmp($tipoE, 'Estandar') === 0) ? 'Estándar' : $tipoE; ?>
+    <div style="width:150px">
+      <label class="form-label" for="pTipo">Tipo de producto</label>
+      <input class="form-control" name="tipo_producto" id="pTipo" maxlength="50"
+             value="<?= P::e($tipoE) ?>" list="lTipos" autocomplete="off">
+      <datalist id="lTipos">
+        <?php foreach (array_unique(array_merge(['Estándar', 'Servicio', 'Granel', 'Paquete', 'Insumo'],
+                       array_map([\LibertyFin\Servicio\FiltrosProducto::class, 'rotuloTipo'], $opcionesFiltro['tipos'] ?? []))) as $t): ?>
+          <option value="<?= P::e($t) ?>"></option>
+        <?php endforeach; ?>
+      </datalist>
+    </div>
+    <?php /* Activo, agotado o inactivo. Agotado a mano es para lo que no
+             lleva existencias (el platillo que se acabó); lo que sí las
+             lleva se ve agotado solo cuando llega a cero. */ ?>
+    <div style="width:140px">
+      <label class="form-label" for="pEstado">Estado</label>
+      <select class="form-select" name="estado" id="pEstado">
+        <?php foreach (\LibertyFin\Datos\ServicioRepo::ESTADOS as $k => $t): ?>
+          <option value="<?= $k ?>" <?= $estadoE === $k ? 'selected' : '' ?>><?= P::e($t) ?></option>
+        <?php endforeach; ?>
+      </select>
     </div>
     <?php /* ── EL PRECIO ──
              Precio, costo y utilidad se calculan entre sí, como en el
@@ -401,6 +440,84 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
     </div>
     <?php endif; ?>
 
+    <?php /* ── ETIQUETAS Y ATRIBUTOS ──
+             Un renglón por etiqueta: el nombre y, si se quiere, un valor
+             y un color. «Nuevo» sola; «Talla · M»; «Color · Rojo» con su
+             muestra. Se ven en la lista y se encuentran con el buscador. */
+    $atrs = $atributosEdit ?? []; ?>
+    <details class="lf-mas-datos lf-prod-atr" <?= $atrs ? 'open' : '' ?>>
+      <summary><span>Etiquetas y atributos</span>
+        <small><?= $atrs ? count($atrs) . (count($atrs) === 1 ? ' etiqueta' : ' etiquetas') : 'talla, color, «nuevo»…' ?></small></summary>
+      <div class="cuerpo">
+        <input type="hidden" name="atributos_en_form" value="1">
+        <datalist id="lAtrNombres">
+          <?php foreach (array_unique(array_merge(['Color', 'Talla', 'Material', 'Tamaño', 'Sabor', 'Nuevo', 'Oferta'],
+                         $nombresAtributos ?? [])) as $n): ?>
+            <option value="<?= P::e($n) ?>"></option>
+          <?php endforeach; ?>
+        </datalist>
+        <div class="lf-atr-lista" id="pAtrLista">
+          <?php foreach (array_merge($atrs, [['nombre' => '', 'valor' => '', 'color' => null]]) as $i => $a):
+            $conColor = !empty($a['color']); ?>
+            <div class="lf-atr-fila">
+              <input class="form-control" name="atr_nombre[]" maxlength="60" list="lAtrNombres"
+                     value="<?= P::e($a['nombre']) ?>" placeholder="Etiqueta o atributo" aria-label="Nombre">
+              <input class="form-control" name="atr_valor[]" maxlength="120"
+                     value="<?= P::e($a['valor'] ?? '') ?>" placeholder="Valor (opcional)" aria-label="Valor">
+              <label class="lf-atr-color" title="Ponerle color">
+                <input type="hidden" name="atr_usa_color[]" value="<?= $conColor ? '1' : '' ?>" class="usa">
+                <input type="color" name="atr_color[]" value="<?= P::e($conColor ? $a['color'] : '#27ae60') ?>"
+                       class="<?= $conColor ? 'on' : '' ?>" aria-label="Color">
+                <span><?= $conColor ? 'Color' : 'Sin color' ?></span>
+              </label>
+              <button type="button" class="lf-btn-ghost lf-atr-quitar" title="Quitar" aria-label="Quitar">
+                <span class="lf-signo">&times;</span></button>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="pAtrMas"><?= W::icono('etiqueta','14px') ?> Agregar otra</button>
+        <p class="pista">Solo el nombre es una etiqueta («Nuevo», «Importado»). Con valor es un atributo
+          («Talla · M»). El color es opcional: tócalo para ponerlo y vuelve a tocar «Color» para quitarlo.</p>
+      </div>
+    </details>
+    <script>
+    (function(){
+      var lista = document.getElementById('pAtrLista'), mas = document.getElementById('pAtrMas');
+      if (!lista || !mas) return;
+      function limpiar(f){
+        f.querySelectorAll('input[name="atr_nombre[]"], input[name="atr_valor[]"]').forEach(function(i){ i.value = ''; });
+        var u = f.querySelector('.usa'), c = f.querySelector('input[type=color]'), s = f.querySelector('.lf-atr-color span');
+        u.value = ''; c.classList.remove('on'); c.value = '#27ae60'; s.textContent = 'Sin color';
+      }
+      mas.addEventListener('click', function(){
+        var f = lista.lastElementChild.cloneNode(true);
+        limpiar(f); lista.appendChild(f);
+        f.querySelector('input').focus();
+      });
+      lista.addEventListener('click', function(ev){
+        var q = ev.target.closest('.lf-atr-quitar');
+        if (q) {
+          var f = q.closest('.lf-atr-fila');
+          if (lista.children.length > 1) f.remove(); else limpiar(f);
+          return;
+        }
+        // Tocar «Color» cuando ya tiene color lo quita.
+        var s = ev.target.closest('.lf-atr-color span');
+        if (s) {
+          var l = s.closest('.lf-atr-color'), u = l.querySelector('.usa'), c = l.querySelector('input[type=color]');
+          if (u.value === '1') { ev.preventDefault(); u.value = ''; c.classList.remove('on'); s.textContent = 'Sin color'; }
+        }
+      });
+      // Elegir un color lo enciende.
+      lista.addEventListener('input', function(ev){
+        if (ev.target.type !== 'color') return;
+        var l = ev.target.closest('.lf-atr-color');
+        l.querySelector('.usa').value = '1'; ev.target.classList.add('on');
+        l.querySelector('span').textContent = 'Color';
+      });
+    })();
+    </script>
+
     <?php /* Lo de vez en cuando, plegado. La descripción ya se guardaba,
              pero no había campo: al editar un producto se borraba la que
              traía del sistema anterior. */ ?>
@@ -572,14 +689,31 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
   </script>
 </details>
 
+<?php /* Activos y agotados (lo de siempre), solo agotados, inactivos o
+         todos. Los inactivos estaban escondidos sin forma de verlos: un
+         producto desactivado por error no se podía volver a activar. */ ?>
+<div class="lf-pills" aria-label="Estado" style="margin-bottom:12px">
+  <?php foreach (\LibertyFin\Datos\ServicioRepo::FILTRO_ESTADO as $k => $t):
+    $n = $k === '' ? ($porEstado['activo'] ?? 0) + ($porEstado['agotado'] ?? 0)
+       : ($k === 'todos' ? array_sum($porEstado ?? []) : ($porEstado[$k] ?? 0)); ?>
+    <a class="lf-pill <?= ($filtro['estado'] ?? '') === $k ? 'active' : '' ?>"
+       href="<?= P::e($qs(['estado' => $k, 'p' => ''])) ?>"><?= P::e($t) ?><span class="n"><?= number_format($n) ?></span></a>
+  <?php endforeach; ?>
+</div>
+
 <form class="lf-filtros" method="get">
+  <?php if (($filtro['estado'] ?? '') !== ''): ?><input type="hidden" name="estado" value="<?= P::e($filtro['estado']) ?>"><?php endif; ?>
   <div class="lf-search">
     <?= W::icono('buscar','15px') ?>
-    <input type="search" name="q" value="<?= P::e($buscar) ?>" placeholder="Producto o código">
+    <input type="search" name="q" value="<?= P::e($buscar) ?>" placeholder="Producto, código o etiqueta">
   </div>
-  <input class="form-control form-control-sm" type="date" name="desde" value="<?= P::e($desde) ?>" style="width:auto">
-  <input class="form-control form-control-sm" type="date" name="hasta" value="<?= P::e($hasta) ?>" style="width:auto">
+  <?php P::parcial('parciales/filtros-producto', ['opcionesFiltro' => $opcionesFiltro, 'filtro' => $filtro]); ?>
+  <input class="form-control form-control-sm" type="date" name="desde" value="<?= P::e($desde) ?>" style="width:auto" aria-label="Ventas desde">
+  <input class="form-control form-control-sm" type="date" name="hasta" value="<?= P::e($hasta) ?>" style="width:auto" aria-label="Ventas hasta">
   <button class="btn btn-secondary btn-sm" type="submit">Filtrar</button>
+  <?php if ($buscar !== '' || $fBase): ?>
+    <a class="lf-link" href="/servicios">Quitar filtros</a>
+  <?php endif; ?>
 </form>
 
 <div class="lf-stats">
@@ -612,16 +746,20 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
   <div class="table-responsive lf-cards" style="padding:0 12px 6px">
     <table class="table table-hover">
       <thead><tr>
-        <th>Producto</th><th>Código</th><th>Área</th>
+        <th>Producto</th><th>Código</th><th>Área</th><th>Estado</th>
         <th class="text-end">Precio</th><th class="text-end">Ventas</th>
         <th class="text-end">Ingreso</th><th></th>
       </tr></thead>
       <tbody>
       <?php if (!$catalogo): ?>
-        <tr><td colspan="7" style="text-align:center;color:var(--lf-tinta-4);padding:34px">
+        <tr><td colspan="8" style="text-align:center;color:var(--lf-tinta-4);padding:34px">
           No hay productos que coincidan.</td></tr>
       <?php endif; ?>
-      <?php foreach ($catalogo as $s): ?>
+      <?php foreach ($catalogo as $s):
+        $est = $s['estado'] ?? 'activo';
+        // «Agotado» que sale solo de las existencias: se dice, para que no
+        // parezca que alguien lo marcó.
+        $porStock = $est === 'agotado' && !empty($s['lleva_inventario']) && (float)$s['stock'] <= 0; ?>
         <?php /* TOCAR EL RENGLÓN EDITA.
              El lápiz mide veinte píxeles y en un teléfono se falla más de
              lo que se acierta; además nadie espera que tocar un producto
@@ -635,11 +773,28 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
               <span class="lf-mini-img"
                     style="<?= !empty($s['imagen']) ? "background-image:url('".P::e($s['imagen'])."')" : '' ?>">
                 <?= !empty($s['imagen']) ? '' : W::icono('serv','14px') ?></span>
-              <b style="font-weight:600"><?= P::e($s['nombre']) ?></b>
+              <span style="min-width:0">
+                <b style="font-weight:600"><?= P::e($s['nombre']) ?></b>
+                <?php if (!empty($s['marca'])): ?><small class="lf-inv-cod" style="display:block"><?= P::e($s['marca']) ?></small><?php endif; ?>
+                <?php if (!empty($atributos[(int)$s['id']])): ?>
+                  <span class="lf-etiquetas">
+                    <?php foreach ($atributos[(int)$s['id']] as $a): ?>
+                      <span class="lf-etq<?= $a['color'] ? ' con-color' : '' ?>"
+                            <?= $a['color'] ? 'style="--etq:' . P::e($a['color']) . '"' : '' ?>><?php
+                        if ($a['color']): ?><i aria-hidden="true"></i><?php endif;
+                        ?><?= P::e($a['nombre']) ?><?= ($a['valor'] ?? '') !== '' ? ': <b>' . P::e($a['valor']) . '</b>' : '' ?></span>
+                    <?php endforeach; ?>
+                  </span>
+                <?php endif; ?>
+              </span>
             </span>
           </td>
           <td data-label="Código"><span class="badge bg-secondary"><?= P::e($s['codigo']) ?></span></td>
           <td data-label="Área"><span class="badge bg-secondary"><?= P::e($s['categoria'] ?: 'Sin área') ?></span></td>
+          <td data-label="Estado"><span class="badge <?= $ESTADO_BADGE[$est] ?? 'bg-secondary' ?>"
+              <?= $porStock ? 'title="Sin existencias: vuelve a activo solo cuando entre mercancía"' : '' ?>>
+              <?= P::e(\LibertyFin\Datos\ServicioRepo::ESTADOS[$est] ?? $est) ?></span>
+            <?php if ($porStock): ?><small class="lf-inv-cod" style="display:block">sin existencias</small><?php endif; ?></td>
           <td data-label="Precio" class="text-end lf-mono"><?= D::pesos($s['precio']) ?></td>
           <td data-label="Ventas" class="text-end lf-mono"><?= (int)$s['ventas'] ?></td>
           <td data-label="Ingreso" class="text-end">
@@ -649,13 +804,27 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
               <span class="badge bg-warning">Sin ventas</span>
             <?php endif; ?>
           </td>
-          <td style="text-align:right;white-space:nowrap">
+          <td style="text-align:right;white-space:nowrap"><div class="lf-prod-acc">
             <a class="lf-btn-ghost" href="<?= P::e($qs(['editar'=>$s['id']])) ?>"
                title="Editar"><?= W::icono('serv','15px') ?></a>
-            <button type="button" class="lf-btn-ghost lf-alternar"
+            <?php /* Los tres estados en un solo control: se elige y se guarda. */ ?>
+            <select class="form-select form-select-sm lf-estado-sel" aria-label="Estado de <?= P::e($s['nombre']) ?>"
+                    data-id="<?= (int)$s['id'] ?>" data-nombre="<?= P::e($s['nombre']) ?>" data-antes="<?= P::e($porStock ? 'activo' : $est) ?>">
+              <?php foreach (\LibertyFin\Datos\ServicioRepo::ESTADOS as $k => $t): ?>
+                <option value="<?= $k ?>" <?= ($porStock ? 'activo' : $est) === $k ? 'selected' : '' ?>><?= P::e($t) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <button type="button" class="lf-btn-ghost lf-duplicar"
                     data-id="<?= (int)$s['id'] ?>" data-nombre="<?= P::e($s['nombre']) ?>"
-                    title="Desactivar"><span class="lf-signo">&times;</span></button>
-          </td>
+                    title="Duplicar"><?= W::icono('copiar','15px') ?></button>
+            <?php /* Borrar solo aparece con el producto inactivo: primero se
+                     desactiva, después se borra. Dos pasos a propósito. */
+            if ($est === 'inactivo'): ?>
+              <button type="button" class="lf-btn-ghost lf-borrar"
+                      data-id="<?= (int)$s['id'] ?>" data-nombre="<?= P::e($s['nombre']) ?>"
+                      title="Borrar" style="color:var(--lf-rojo)"><?= W::icono('basura','15px') ?></button>
+            <?php endif; ?>
+          </div></td>
         </tr>
       <?php endforeach; ?>
       </tbody>
@@ -704,19 +873,53 @@ $qs = function (array $x = []) use ($desde,$hasta,$buscar) {
   <?php endif; ?>
 </div>
 
-<form method="post" action="/servicios/alternar" id="formAlternar" hidden>
+<?php /* Un formulario para las tres acciones de la lista (estado, duplicar,
+         borrar): cambia el action y se manda. */ ?>
+<form method="post" id="formAccion" hidden>
   <input type="hidden" name="token" value="<?= P::e($token) ?>">
-  <input type="hidden" name="id" id="altId">
+  <input type="hidden" name="id" id="accId">
+  <input type="hidden" name="estado" id="accEstado">
+  <input type="hidden" name="volver" value="<?= P::e($volverQ) ?>">
 </form>
 <script>
-document.querySelectorAll('.lf-alternar').forEach(function(b){
-  b.addEventListener('click', function(){
-    if (!confirm('¿Desactivar "' + b.dataset.nombre + '"?\n\n'
-      + 'Deja de aparecer en Caja, pero las ventas que ya lo usaron no se tocan.')) return;
-    document.getElementById('altId').value = b.dataset.id;
-    document.getElementById('formAlternar').submit();
+(function(){
+  var f = document.getElementById('formAccion');
+  function mandar(accion, id, estado){
+    f.action = '/servicios/' + accion;
+    document.getElementById('accId').value = id;
+    document.getElementById('accEstado').value = estado || '';
+    f.submit();
+  }
+  var AVISO = {
+    inactivo: 'Deja de aparecer en Caja, pero las ventas que ya lo usaron no se tocan. Ya inactivo, se puede borrar.',
+    agotado:  'Sigue en el catálogo marcado como agotado, hasta que lo vuelvas a poner activo.',
+    activo:   'Vuelve a venderse normal.'
+  };
+  document.querySelectorAll('.lf-estado-sel').forEach(function(s){
+    s.addEventListener('change', function(){
+      var t = s.options[s.selectedIndex].text;
+      if (!confirm('¿Poner «' + s.dataset.nombre + '» como ' + t.toLowerCase() + '?\n\n' + (AVISO[s.value] || ''))) {
+        s.value = s.dataset.antes; return;
+      }
+      mandar('estado', s.dataset.id, s.value);
+    });
   });
-});
+  document.querySelectorAll('.lf-duplicar').forEach(function(b){
+    b.addEventListener('click', function(){
+      if (!confirm('¿Duplicar «' + b.dataset.nombre + '»?\n\n'
+        + 'Se crea una copia con otro SKU, sin código de barras y sin existencias. Se abre para que la edites.')) return;
+      mandar('duplicar', b.dataset.id);
+    });
+  });
+  document.querySelectorAll('.lf-borrar').forEach(function(b){
+    b.addEventListener('click', function(){
+      if (!confirm('¿Borrar «' + b.dataset.nombre + '»?\n\n'
+        + 'Desaparece de Productos, Caja e Inventario. Las ventas y movimientos que ya lo usaron se quedan como están. '
+        + 'Esto no se puede deshacer desde aquí.')) return;
+      mandar('borrar', b.dataset.id);
+    });
+  });
+})();
 </script>
 
 <script>

@@ -4,6 +4,93 @@ namespace LibertyFin\Datos;
 /** Catálogo de servicios y su desempeño. */
 final class ServicioRepo extends Repo
 {
+    /**
+     * Los tres estados de un producto.
+     *
+     *   activo    se vende
+     *   agotado   sigue en el catálogo, pero no hay: se marca a mano, o
+     *             sale solo si lleva existencias y están en cero
+     *   inactivo  apagado: no sale en Caja. Solo uno inactivo se puede borrar.
+     */
+    const ESTADOS = ['activo' => 'Activo', 'agotado' => 'Agotado', 'inactivo' => 'Inactivo'];
+
+    /** Lo que se puede pedir en el filtro de estado. '' = activos y agotados. */
+    const FILTRO_ESTADO = ['' => 'Activos y agotados', 'activo' => 'Solo activos', 'agotado' => 'Agotados',
+                           'inactivo' => 'Inactivos', 'todos' => 'Todos'];
+
+    /** Cuántos atributos o etiquetas puede tener un producto. */
+    const MAX_ATRIBUTOS = 30;
+
+    private static $v35 = null;
+
+    /**
+     * ¿La base ya tiene lo de la versión 35 (agotado, borrado, atributos)?
+     *
+     * Productos tiene que abrir aunque la migración no haya corrido: sin
+     * esto, una base atrasada dejaba la pantalla en blanco por una columna.
+     */
+    private function hayV35()
+    {
+        if (self::$v35 === null) {
+            try {
+                self::$v35 = (int)$this->valor("SELECT COUNT(*) FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productos' AND COLUMN_NAME = 'eliminado_en'") > 0;
+            } catch (\Throwable $e) {
+                self::$v35 = false;
+            }
+        }
+        return self::$v35;
+    }
+
+    /**
+     * El estado de cada producto, en SQL.
+     *
+     * Agotado es lo marcado a mano o, con Inventario encendido, lo que
+     * lleva existencias y ya no tiene. Calcularlo y no guardarlo hace que
+     * un producto deje de estar agotado en cuanto entra mercancía, sin que
+     * nadie tenga que acordarse de desmarcarlo.
+     *
+     * Lo que está en PREVENTA no se agota por estar en cero: se vende justo
+     * porque todavía no llega. (La columna `preventa` es de la versión 34;
+     * con la 35 aplicada, ya existe.)
+     */
+    private function estadoSql($conInventario)
+    {
+        $agot = [];
+        if ($this->hayV35()) $agot[] = 'COALESCE(p.agotado,0) = 1';
+        if ($conInventario)  $agot[] = '(COALESCE(p.lleva_inventario,0) = 1 AND COALESCE(p.stock,0) <= 0'
+                                     . ($this->hayV35() ? ' AND COALESCE(p.preventa,0) = 0' : '') . ')';
+        return "CASE WHEN COALESCE(p.activo,1) = 0 THEN 'inactivo'"
+             . ($agot ? " WHEN " . implode(' OR ', $agot) . " THEN 'agotado'" : '')
+             . " ELSE 'activo' END";
+    }
+
+    /** El WHERE del catálogo: estado, búsqueda y marca, área y tipo. */
+    private function filtrosCatalogo($buscar, array $f)
+    {
+        $w = []; $p = [];
+        if ($this->hayV35()) $w[] = 'p.eliminado_en IS NULL';
+        $est = (string)($f['estado'] ?? '');
+        $expr = $this->estadoSql(!empty($f['inventario']));
+        if ($est === '')               $w[] = 'COALESCE(p.activo,1) = 1';
+        elseif ($est !== 'todos')      { $w[] = "($expr) = ?"; $p[] = $est; }
+        if ($buscar !== '') {
+            $l = '%' . $buscar . '%';
+            $o = ['p.nombre LIKE ?', 'p.codigo LIKE ?', 'p.codigo_barras LIKE ?'];
+            array_push($p, $l, $l, $l);
+            // También por sus etiquetas: buscar «rojo» encuentra lo que
+            // tiene el atributo Color: Rojo.
+            if ($this->hayV35()) {
+                $o[] = 'EXISTS (SELECT 1 FROM lf_producto_atributos pa
+                                 WHERE pa.producto_id = p.id AND (pa.nombre LIKE ? OR pa.valor LIKE ?))';
+                array_push($p, $l, $l);
+            }
+            $w[] = '(' . implode(' OR ', $o) . ')';
+        }
+        list($wf, $pf) = \LibertyFin\Servicio\FiltrosProducto::sql($f, 'p');
+        return [array_merge($w, $wf) ?: ['1 = 1'], array_merge($p, $pf)];
+    }
+
     private function rango($desde, $hasta)
     {
         return [$desde . ' 00:00:00',
@@ -43,17 +130,25 @@ final class ServicioRepo extends Repo
         return $r;
     }
 
-    public function catalogo($desde, $hasta, $buscar = '', $limite = 10, $desfase = 0)
+    /**
+     * @param array $f  estado ('' activos y agotados, 'activo', 'agotado',
+     *                  'inactivo', 'todos'), inventario (bool: Inventario
+     *                  encendido) y marca, área y tipo (ver FiltrosProducto)
+     */
+    public function catalogo($desde, $hasta, $buscar = '', $limite = 10, $desfase = 0, array $f = [])
     {
         list($a, $b) = $this->rango($desde, $hasta);
-        // Solo DOS fechas: las del subquery de ventas. El WHERE exterior
-        // filtra por p.activo, que no lleva marcador.
-        $w = ['p.activo = 1']; $p = [$a, $b];
-        if ($buscar !== '') { $w[] = '(p.nombre LIKE ? OR p.codigo LIKE ?)';
-                              $l = '%' . $buscar . '%'; $p[] = $l; $p[] = $l; }
+        // Las DOS fechas del subquery de ventas van primero; detrás, las
+        // del WHERE exterior.
+        list($w, $pw) = $this->filtrosCatalogo($buscar, $f);
+        $p = array_merge([$a, $b], $pw);
+        $estado = $this->estadoSql(!empty($f['inventario']));
         return $this->todos("
             SELECT p.id, p.codigo, p.nombre, p.imagen, p.marca,
                    COALESCE(NULLIF(p.subprecio,0), p.precio) AS precio,
+                   COALESCE(NULLIF(p.tipo_producto,''),'Estandar') AS tipo_producto,
+                   COALESCE(p.lleva_inventario,0) AS lleva_inventario, COALESCE(p.stock,0) AS stock,
+                   $estado AS estado,
                    cat.nombre AS categoria,
                    COALESCE(x.veces,0)   AS ventas,
                    COALESCE(x.ingreso,0) AS ingreso
@@ -185,7 +280,21 @@ final class ServicioRepo extends Repo
             'marca'       => mb_substr(trim((string)($d['marca'] ?? '')), 0, 100) ?: null,
             'clave_sat'   => $sat ?: null,
             'codigo_barras' => $barras ?: null,
-        ] + $this->impuestos($d) + $this->caducidad($d);
+        ] + $this->impuestos($d) + $this->caducidad($d) + $this->tipo($d);
+    }
+
+    /**
+     * El tipo de producto (`tipo_producto`): «Estándar», «Servicio»,
+     * «Granel»… Es por lo que filtran Productos, Existencias y Conteo.
+     * Ya existía en la base del sistema anterior; solo le faltaba campo.
+     * Si el formulario no lo trae, no se toca.
+     */
+    private function tipo(array $d)
+    {
+        if (!array_key_exists('tipo_producto', $d)) return [];
+        $t = mb_substr(trim((string)$d['tipo_producto']), 0, 50);
+        if ($t === '' || strcasecmp($t, 'Estándar') === 0) $t = 'Estandar';
+        return ['tipo_producto' => $t];
     }
 
     /**
@@ -363,12 +472,222 @@ final class ServicioRepo extends Repo
         return (int)$this->valor("SELECT activo FROM productos WHERE id = ?", [(int)$id]);
     }
 
-    public function cuantos($buscar = '')
+    public function cuantos($buscar = '', array $f = [])
     {
-        $w = ['p.activo = 1']; $p = [];
-        if ($buscar !== '') { $w[] = '(p.nombre LIKE ? OR p.codigo LIKE ?)';
-                              $l = '%'.$buscar.'%'; $p[] = $l; $p[] = $l; }
+        list($w, $p) = $this->filtrosCatalogo($buscar, $f);
         return (int)$this->valor("SELECT COUNT(*) FROM productos p WHERE " . implode(' AND ', $w), $p);
+    }
+
+    /**
+     * Cuántos hay en cada estado (sin contar los borrados), para las
+     * pastillas del filtro. Respeta la búsqueda y la marca/área/tipo.
+     *
+     * @return array ['activo' => n, 'agotado' => n, 'inactivo' => n]
+     */
+    public function porEstado($buscar = '', array $f = [])
+    {
+        list($w, $p) = $this->filtrosCatalogo($buscar, ['estado' => 'todos'] + $f);
+        $expr = $this->estadoSql(!empty($f['inventario']));
+        $r = ['activo' => 0, 'agotado' => 0, 'inactivo' => 0];
+        foreach ($this->todos("SELECT $expr AS e, COUNT(*) AS n FROM productos p
+                               WHERE " . implode(' AND ', $w) . " GROUP BY e", $p) as $x) {
+            $r[$x['e']] = (int)$x['n'];
+        }
+        return $r;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ESTADO, DUPLICAR Y BORRAR
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Pone el estado: activo, agotado o inactivo.
+     *
+     * Agotado a mano es para lo que no lleva existencias —el platillo del
+     * día que se acabó—; lo que sí las lleva se agota solo en cero. Al
+     * volver a activo se quita la marca.
+     */
+    public function cambiarEstado($id, $estado)
+    {
+        if (!isset(self::ESTADOS[$estado])) throw new \InvalidArgumentException('Ese estado no existe');
+        $activo = $estado === 'inactivo' ? 0 : 1;
+        if ($this->hayV35()) {
+            $this->db->prepare("UPDATE productos SET activo = ?, agotado = ? WHERE id = ?")
+                     ->execute([$activo, $estado === 'agotado' ? 1 : 0, (int)$id]);
+        } else {
+            if ($estado === 'agotado') {
+                throw new \InvalidArgumentException('Para marcar agotado falta poner la base al día (Mantenimiento)');
+            }
+            $this->db->prepare("UPDATE productos SET activo = ? WHERE id = ?")->execute([$activo, (int)$id]);
+        }
+        return $estado;
+    }
+
+    /** El estado de un producto, como lo lee la pantalla. */
+    public function estadoDe($id, $conInventario = false)
+    {
+        return (string)$this->valor("SELECT " . $this->estadoSql($conInventario) . " FROM productos p WHERE p.id = ?",
+                                    [(int)$id]) ?: 'activo';
+    }
+
+    /**
+     * Una copia del producto, lista para editar.
+     *
+     * Se copia todo lo que lo describe —precio, costo, área, marca,
+     * impuestos, unidad, etiquetas, mínimos por sucursal— y NADA de lo que
+     * es suyo: ni SKU ni código de barras (son únicos), ni existencias, ni
+     * ventas, ni sus publicaciones en tiendas en línea. La imagen se copia
+     * como archivo aparte, para que cambiarle la foto a uno no se la quite
+     * al otro.
+     *
+     * @return int el id de la copia
+     */
+    public function duplicar($id)
+    {
+        $o = $this->uno("SELECT * FROM productos WHERE id = ?", [(int)$id]);
+        if (!$o) throw new \InvalidArgumentException('Ese producto no existe');
+
+        $fuera = ['id', 'codigo', 'codigo_barras', 'stock', 'fecha_creacion', 'fecha_actualizacion',
+                  'facturapi_producto_id', 'eliminado_en', 'agotado', 'imagen'];
+        $c = array_diff_key($o, array_flip($fuera));
+        $c['codigo']  = $this->sugerirSku($o['categoria_id'] ?? null);
+        $c['nombre']  = mb_substr(trim($o['nombre']) . ' (copia)', 0, 255);
+        $c['activo']  = 1;
+        $c['stock']   = 0;
+        $img = \LibertyFin\Servicio\Archivos::copiar($o['imagen'] ?? '', 'serv');
+        if ($img) $c['imagen'] = $img;
+
+        $propia = !$this->db->inTransaction();
+        if ($propia) $this->db->beginTransaction();
+        try {
+            $cols = array_keys($c);
+            $this->db->prepare("INSERT INTO productos (`" . implode('`,`', $cols) . "`)
+                                VALUES (" . rtrim(str_repeat('?,', count($cols)), ',') . ")")
+                     ->execute(array_values($c));
+            $nuevo = (int)$this->db->lastInsertId();
+
+            // Los mínimos por sucursal, sin existencia: la copia nace en cero.
+            try {
+                $this->db->prepare("INSERT INTO producto_sucursal (producto_id, sucursal_id, stock, stock_minimo, activo)
+                                    SELECT ?, sucursal_id, 0, stock_minimo, activo FROM producto_sucursal
+                                     WHERE producto_id = ?")->execute([$nuevo, (int)$id]);
+            } catch (\Throwable $e) { /* sin la tabla, sin mínimos */ }
+
+            if ($this->hayV35()) {
+                $this->db->prepare("INSERT INTO lf_producto_atributos (producto_id, nombre, valor, color, orden)
+                                    SELECT ?, nombre, valor, color, orden FROM lf_producto_atributos
+                                     WHERE producto_id = ?")->execute([$nuevo, (int)$id]);
+            }
+            if ($propia) $this->db->commit();
+            return $nuevo;
+        } catch (\Throwable $e) {
+            if ($propia && $this->db->inTransaction()) $this->db->rollBack();
+            if ($img) \LibertyFin\Servicio\Archivos::borrar($img);
+            throw $e;
+        }
+    }
+
+    /**
+     * Borra un producto. SOLO si está inactivo.
+     *
+     * No se quita la fila: las ventas, los movimientos de inventario y las
+     * compras viejas la siguen leyendo, y una venta que apunta a un
+     * producto que no existe pierde su renglón. Se marca como borrado y
+     * desaparece de todas las listas.
+     *
+     * Su SKU y su código de barras se liberan (el SKU se renombra): sin
+     * eso, dar de alta otra vez «PAN-0001» chocaba con un producto que ya
+     * nadie ve.
+     */
+    public function borrar($id)
+    {
+        if (!$this->hayV35()) {
+            throw new \InvalidArgumentException('Para borrar productos falta poner la base al día (Mantenimiento)');
+        }
+        $p = $this->uno("SELECT id, codigo, nombre, activo, eliminado_en FROM productos WHERE id = ?", [(int)$id]);
+        if (!$p || $p['eliminado_en']) throw new \InvalidArgumentException('Ese producto no existe');
+        if ((int)$p['activo'] === 1) {
+            throw new \InvalidArgumentException('Solo se puede borrar un producto inactivo. Desactívalo primero.');
+        }
+        $codigo = mb_substr('BORRADO-' . (int)$p['id'] . '-' . $p['codigo'], 0, 50);
+        $this->db->prepare("UPDATE productos SET eliminado_en = NOW(), activo = 0, agotado = 0,
+                                   codigo = ?, codigo_barras = NULL WHERE id = ?")
+                 ->execute([$codigo, (int)$id]);
+        return $p;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ETIQUETAS Y ATRIBUTOS
+    // ─────────────────────────────────────────────────────────────
+
+    /** Las etiquetas y atributos de un producto, en orden. */
+    public function atributos($id)
+    {
+        $r = $this->atributosDe([(int)$id]);
+        return $r[(int)$id] ?? [];
+    }
+
+    /** @return array [producto_id => [['nombre','valor','color'], …]] */
+    public function atributosDe(array $ids)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (!$ids || !$this->hayV35()) return [];
+        $r = [];
+        foreach ($this->todos("SELECT producto_id, nombre, valor, color FROM lf_producto_atributos
+                                WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")
+                                ORDER BY producto_id, orden, id", $ids) as $a) {
+            $r[(int)$a['producto_id']][] = $a;
+        }
+        return $r;
+    }
+
+    /**
+     * Guarda las etiquetas y atributos del formulario.
+     *
+     * Cada renglón es un nombre y, si se quiere, un valor y un color:
+     *   «Nuevo»                       una etiqueta sola
+     *   «Talla» · «M»                 un atributo de texto
+     *   «Color» · «Rojo» · #d93025    un atributo con su color
+     *
+     * Se reemplazan todos de una vez. Solo si el formulario habló de ellos
+     * (`atributos_en_form`): guardar un producto desde otra pantalla no
+     * puede borrarle las etiquetas.
+     */
+    public function guardarAtributos($id, array $d)
+    {
+        if (empty($d['atributos_en_form']) || !$this->hayV35()) return 0;
+        $nom = (array)($d['atr_nombre'] ?? []);
+        $val = (array)($d['atr_valor'] ?? []);
+        $col = (array)($d['atr_color'] ?? []);
+        $usa = (array)($d['atr_usa_color'] ?? []);
+        $filas = [];
+        foreach ($nom as $i => $n) {
+            $n = mb_substr(trim((string)$n), 0, 60);
+            $v = mb_substr(trim((string)($val[$i] ?? '')), 0, 120);
+            if ($n === '' && $v === '') continue;
+            if ($n === '') { $n = $v; $v = ''; }     // solo escribieron el valor: es una etiqueta
+            $c = strtolower(trim((string)($col[$i] ?? '')));
+            $c = (!empty($usa[$i]) && preg_match('/^#[0-9a-f]{6}$/', $c)) ? $c : null;
+            $filas[] = [$n, $v !== '' ? $v : null, $c];
+            if (count($filas) >= self::MAX_ATRIBUTOS) break;
+        }
+        $this->db->prepare("DELETE FROM lf_producto_atributos WHERE producto_id = ?")->execute([(int)$id]);
+        $ins = $this->db->prepare("INSERT INTO lf_producto_atributos (producto_id, nombre, valor, color, orden)
+                                   VALUES (?,?,?,?,?)");
+        foreach ($filas as $k => $f) $ins->execute([(int)$id, $f[0], $f[1], $f[2], $k]);
+        return count($filas);
+    }
+
+    /** Los nombres de atributo que ya se usan, para sugerirlos al escribir. */
+    public function nombresDeAtributos()
+    {
+        if (!$this->hayV35()) return [];
+        try {
+            return array_column($this->todos("SELECT nombre, COUNT(*) n FROM lf_producto_atributos
+                                               GROUP BY nombre ORDER BY n DESC, nombre LIMIT 60"), 'nombre');
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /** Un servicio por su id. */

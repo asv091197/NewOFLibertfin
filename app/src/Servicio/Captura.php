@@ -185,9 +185,14 @@ final class Captura
 
         $p = $this->inv->buscarProducto($codigo);
         if (!$p) {
+            // Se escribió parte de un nombre y hay varios: decirlo, para que
+            // se elija de la lista del buscador en vez de seguir probando.
+            $varios = count($this->inv->sugerencias($codigo, (int)$c['sucursal_id'], 3));
             return ['ok' => false,
-                    'texto' => 'No encontré ningún producto con «' . $codigo . '». '
-                             . 'Revisa que esté dado de alta y que lleve inventario.'];
+                    'texto' => $varios > 1
+                        ? 'Hay varios productos con «' . $codigo . '». Elige el bueno en la lista del buscador.'
+                        : 'No encontré ningún producto con «' . $codigo . '». '
+                          . 'Revisa que esté dado de alta y que lleve inventario.'];
         }
 
         $cant = (float)$cantidad;
@@ -258,7 +263,10 @@ final class Captura
                 $cant = (float)$l['cantidad'];
                 if ($cant <= 0) continue;
 
-                $d = ['nota' => $this->nota($c), 'almacen_id' => $c['almacen_id']];
+                // Todos los renglones con el mismo lote: en Movimientos la
+                // entrada se ve y se descarga completa, no producto por producto.
+                $d = ['nota' => $this->nota($c), 'almacen_id' => $c['almacen_id'],
+                      'lote' => 'captura:' . (int)$c['id']];
                 if ($c['tipo'] === 'merma') $d['motivo'] = (string)($c['motivo'] ?: 'otro');
                 if ($l['costo'] !== null && $c['tipo'] === 'entrada') $d['costo'] = $l['costo'];
 

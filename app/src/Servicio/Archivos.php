@@ -156,6 +156,26 @@ final class Archivos
         return '/assets/subidas/' . $nombre;
     }
 
+    /**
+     * Copia una imagen subida y devuelve la ruta pública de la copia.
+     *
+     * Para duplicar un producto: si la copia apuntara al MISMO archivo,
+     * cambiarle la imagen a uno borraría la del otro (borrar() quita el
+     * archivo anterior). null si no hay nada que copiar o no se pudo.
+     */
+    public static function copiar($rutaPublica, $prefijo = 'img')
+    {
+        if (!$rutaPublica || strpos($rutaPublica, '/assets/subidas/') !== 0 || !self::$destino) return null;
+        $origen = self::$destino . '/' . basename($rutaPublica);
+        if (!is_file($origen)) return null;
+        $ext = strtolower(pathinfo($origen, PATHINFO_EXTENSION));
+        if (!in_array($ext, self::TIPOS, true)) return null;
+        $nombre = preg_replace('/[^a-z0-9_-]/i', '', $prefijo) . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        if (!@copy($origen, self::$destino . '/' . $nombre)) return null;
+        @chmod(self::$destino . '/' . $nombre, 0644);
+        return '/assets/subidas/' . $nombre;
+    }
+
     /** Borra una imagen subida. Solo dentro de la carpeta de subidas. */
     public static function borrar($rutaPublica)
     {

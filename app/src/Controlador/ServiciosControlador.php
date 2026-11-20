@@ -25,22 +25,41 @@ final class ServiciosControlador
         $editar = Peticion::entero('editar');
         $pagina = max(1, Peticion::entero('p', 1));
         $porPag = Peticion::POR_PAGINA;
-        $total  = $repo->cuantos($buscar);
+
+        // Estado (activo, agotado, inactivo) y marca, área y tipo: los
+        // mismos filtros que Existencias y Conteo físico.
+        $conInv = false;
+        try { $conInv = (new \LibertyFin\Servicio\Inventario($db))->activo(); } catch (\Throwable $e) {}
+        $filtro = \LibertyFin\Servicio\FiltrosProducto::deLaPeticion() + [
+            'estado'     => Peticion::opcion('estado', array_keys(ServicioRepo::FILTRO_ESTADO), ''),
+            'inventario' => $conInv,
+        ];
+        $total    = $repo->cuantos($buscar, $filtro);
+        $catalogo = $repo->catalogo($desde, $hasta, $buscar, $porPag, ($pagina-1)*$porPag, $filtro);
+        $editando = $editar ? $repo->uno_($editar) : null;
+        if ($editando && !empty($editando['eliminado_en'])) $editando = null;   // uno borrado no se edita
 
         Plantilla::pagina('servicios/index', [
             'titulo'    => 'Productos',
             'icono'     => 'serv',
             'subtitulo' => Fechas::rotulo($desde, $hasta) . ' · catálogo y desempeño',
             'resumen'   => $repo->resumen($desde, $hasta),
-            'catalogo'  => $repo->catalogo($desde, $hasta, $buscar, $porPag, ($pagina-1)*$porPag),
+            'catalogo'  => $catalogo,
+            'atributos' => $repo->atributosDe(array_column($catalogo, 'id')),
             'pagina'    => $pagina,
             'paginas'   => max(1, (int)ceil($total / $porPag)),
             'total'     => $total,
             'top'       => $repo->masFacturan($desde, $hasta, 5),
             'areas'     => $repo->porArea($desde, $hasta),
             'desde'     => $desde, 'hasta' => $hasta, 'buscar' => $buscar,
+            'filtro'    => $filtro,
+            'opcionesFiltro' => \LibertyFin\Servicio\FiltrosProducto::opciones($db),
+            'porEstado' => $repo->porEstado($buscar, $filtro),
+            'conInventario' => $conInv,
             'categorias'=> $repo->categoriasEnArbol(),
-            'editando'  => $editar ? $repo->uno_($editar) : null,
+            'editando'  => $editando,
+            'atributosEdit'    => $editando ? $repo->atributos($editando['id']) : [],
+            'nombresAtributos' => $repo->nombresDeAtributos(),
             'abrir'     => $editar > 0 || Peticion::texto('nuevo') !== '',
             'aviso'     => $_SESSION['lf_aviso'] ?? null,
             'vigentes'  => $this->cuantasVigentes($db),
@@ -184,6 +203,7 @@ final class ServiciosControlador
             $msg .= $this->guardarInventario($db, $id);
             $msg .= $this->guardarPreventa($db, $id);
             $msg .= $this->guardarModulos($db, $id);
+            $msg .= $this->guardarEstadoYAtributos($repo, $id);
             $this->volver($msg, 'ok');
         } catch (\InvalidArgumentException $e) {
             $this->volver($e->getMessage(), 'error');
@@ -304,6 +324,109 @@ final class ServiciosControlador
             error_log('[LibertyFin] preventa del producto ' . $id . ': ' . $e->getMessage());
             return ' Pero la preventa no se pudo guardar.';
         }
+    }
+
+    /**
+     * El estado y las etiquetas del formulario. Van aparte de los datos,
+     * como la imagen: si fallan, el producto ya quedó guardado.
+     */
+    private function guardarEstadoYAtributos(ServicioRepo $repo, $id)
+    {
+        $msg = '';
+        try {
+            $est = (string)($_POST['estado'] ?? '');
+            if (isset(ServicioRepo::ESTADOS[$est])) $repo->cambiarEstado($id, $est);
+        } catch (\InvalidArgumentException $e) {
+            $msg .= ' Pero el estado no se cambió: ' . $e->getMessage() . '.';
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] estado del producto ' . $id . ': ' . $e->getMessage());
+            $msg .= ' Pero el estado no se pudo cambiar.';
+        }
+        try {
+            $repo->guardarAtributos($id, $_POST);
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] etiquetas del producto ' . $id . ': ' . $e->getMessage());
+            $msg .= ' Pero las etiquetas no se pudieron guardar (¿la base está al día?).';
+        }
+        return $msg;
+    }
+
+    /** Activo, agotado o inactivo, desde la lista. */
+    public function estado()
+    {
+        $db = Conexion::de($_SESSION['empresa_db']);
+        if (!$this->tokenValido()) $this->volver('No se pudo verificar el formulario.', 'error');
+        $id  = (int)($_POST['id'] ?? 0);
+        $est = (string)($_POST['estado'] ?? '');
+        try {
+            $repo  = new ServicioRepo($db);
+            $antes = $repo->porId($id);
+            if (!$antes || !empty($antes['eliminado_en'])) throw new \InvalidArgumentException('Ese producto no existe');
+            $repo->cambiarEstado($id, $est);
+            Auditoria::anota('servicio.estado', $antes['nombre'],
+                (int)$antes['activo'] ? (!empty($antes['agotado']) ? 'agotado' : 'activo') : 'inactivo', $est);
+            $txt = ['activo'   => 'Producto activo: se vende normal.',
+                    'agotado'  => 'Producto marcado como agotado. Sigue en el catálogo; vuelve a activo cuando haya.',
+                    'inactivo' => 'Producto desactivado. Ya no aparece en Caja; ahora se puede borrar.'][$est];
+            $this->volver($antes['nombre'] . ': ' . $txt, 'ok', $this->dondeVolver());
+        } catch (\InvalidArgumentException $e) {
+            $this->volver($e->getMessage(), 'error', $this->dondeVolver());
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] estado de producto: ' . $e->getMessage());
+            $this->volver('No se pudo cambiar el estado.', 'error', $this->dondeVolver());
+        }
+    }
+
+    /** Una copia del producto, y se abre para editarla. */
+    public function duplicar()
+    {
+        $db = Conexion::de($_SESSION['empresa_db']);
+        if (!$this->tokenValido()) $this->volver('No se pudo verificar el formulario.', 'error');
+        $id = (int)($_POST['id'] ?? 0);
+        try {
+            $repo  = new ServicioRepo($db);
+            $antes = $repo->porId($id);
+            if (!$antes || !empty($antes['eliminado_en'])) throw new \InvalidArgumentException('Ese producto no existe');
+            $nuevo = $repo->duplicar($id);
+            $copia = $repo->porId($nuevo);
+            Auditoria::anota('servicio.duplicar', $antes['nombre'], null, $copia['codigo'] . ' · ' . $copia['nombre']);
+            $this->volver('Copia creada con el SKU ' . $copia['codigo'] . ', sin existencias ni código de barras. '
+                        . 'Cámbiale el nombre y lo que haga falta.', 'ok', '?editar=' . $nuevo);
+        } catch (\InvalidArgumentException $e) {
+            $this->volver($e->getMessage(), 'error', $this->dondeVolver());
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] duplicar producto: ' . $e->getMessage());
+            $this->volver('No se pudo duplicar el producto.', 'error', $this->dondeVolver());
+        }
+    }
+
+    /** Borra un producto inactivo (ver ServicioRepo::borrar: sale de las listas, la historia se queda). */
+    public function borrar()
+    {
+        $db = Conexion::de($_SESSION['empresa_db']);
+        if (!$this->tokenValido()) $this->volver('No se pudo verificar el formulario.', 'error');
+        try {
+            $p = (new ServicioRepo($db))->borrar((int)($_POST['id'] ?? 0));
+            Auditoria::anota('servicio.borrar', $p['nombre'], $p['codigo'], null);
+            $this->volver('«' . $p['nombre'] . '» borrado. Las ventas y movimientos que ya lo usaron no se tocan.',
+                          'ok', $this->dondeVolver());
+        } catch (\InvalidArgumentException $e) {
+            $this->volver($e->getMessage(), 'error', $this->dondeVolver());
+        } catch (\Throwable $e) {
+            error_log('[LibertyFin] borrar producto: ' . $e->getMessage());
+            $this->volver('No se pudo borrar el producto.', 'error', $this->dondeVolver());
+        }
+    }
+
+    /**
+     * A qué lista volver después de una acción: la misma que se estaba
+     * viendo (filtros y página). Solo una cadena de consulta; nada de
+     * rutas ni direcciones de fuera.
+     */
+    private function dondeVolver()
+    {
+        $q = (string)($_POST['volver'] ?? '');
+        return preg_match('~^\?[A-Za-z0-9_=&%.+\-]*$~', $q) ? $q : '';
     }
 
     /** Activa o desactiva. Nunca se borra: rompería las ventas viejas. */

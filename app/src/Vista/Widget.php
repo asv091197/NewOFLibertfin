@@ -308,6 +308,12 @@ final class Widget
             'chat'   => '<path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5z"/>',
             // El tutorial: un libro abierto.
             'libro'  => '<path d="M12 6.5C10.3 5 7.6 4.5 4 4.8v13.4c3.6-.3 6.3.2 8 1.8 1.7-1.6 4.4-2.1 8-1.8V4.8c-3.6-.3-6.3.2-8 1.7z"/><path d="M12 6.5V20"/>',
+            // Descargar el PDF de una hoja (inventario, conteos).
+            'descargar' => '<path d="M12 4v11M7 10.5l5 5 5-5"/><path d="M4.5 19.5h15"/>',
+            // Duplicar un producto.
+            'copiar' => '<rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/>',
+            'basura' => '<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/>',
+            'etiqueta'=> '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.4 6.4a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.5"/>',
         ];
         $d = isset($p[$n]) ? $p[$n] : $p['panel'];
         // El "+" va en rojo, igual que las "×" (ver .lf-signo en libertyfin.css).

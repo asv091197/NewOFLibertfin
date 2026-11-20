@@ -241,6 +241,10 @@ $r->get('/servicios', ['LibertyFin\Controlador\ServiciosControlador', 'index']);
 $r->post('/clientes/guardar',   ['LibertyFin\Controlador\ClientesControlador',  'guardar']);
 $r->post('/servicios/guardar',  ['LibertyFin\Controlador\ServiciosControlador', 'guardar']);
 $r->post('/servicios/alternar', ['LibertyFin\Controlador\ServiciosControlador', 'alternar']);
+// Activo, agotado o inactivo; duplicar; y borrar (solo un producto inactivo).
+$r->post('/servicios/estado',   ['LibertyFin\Controlador\ServiciosControlador', 'estado']);
+$r->post('/servicios/duplicar', ['LibertyFin\Controlador\ServiciosControlador', 'duplicar']);
+$r->post('/servicios/borrar',   ['LibertyFin\Controlador\ServiciosControlador', 'borrar']);
 $r->get('/servicios/claves-sat', ['LibertyFin\Controlador\ServiciosControlador', 'clavesSat']);
 $r->post('/servicios/promociones/guardar',  ['LibertyFin\Controlador\ServiciosControlador', 'guardarPromocion']);
 $r->post('/servicios/promociones/alternar', ['LibertyFin\Controlador\ServiciosControlador', 'alternarPromocion']);
@@ -347,6 +351,13 @@ $r->get('/compras/{id}',                 ['LibertyFin\Controlador\ComprasControl
 $r->post('/compras/{id}/recibir',        ['LibertyFin\Controlador\ComprasControlador', 'recibir']);
 $r->post('/compras/{id}/cancelar',       ['LibertyFin\Controlador\ComprasControlador', 'cancelar']);
 $r->post('/inventario/conteo',           ['LibertyFin\Controlador\InventarioControlador', 'conteo']);
+$r->get('/inventario/conteo/ver',        ['LibertyFin\Controlador\InventarioControlador', 'verConteo']);
+// El detalle de un movimiento (con todo su documento) y las hojas para
+// imprimir o guardar en PDF: existencias, movimientos, un documento, un conteo.
+$r->get('/inventario/movimiento',        ['LibertyFin\Controlador\InventarioControlador', 'movimiento']);
+$r->get('/inventario/imprimir',          ['LibertyFin\Controlador\InventarioControlador', 'imprimir']);
+// El buscador de la captura con pistola.
+$r->get('/inventario/buscar',            ['LibertyFin\Controlador\InventarioControlador', 'buscar']);
 // Capturar entradas y salidas con la pistola, en modo concentrado.
 $r->get('/inventario/captura',           ['LibertyFin\Controlador\InventarioControlador', 'captura']);
 $r->post('/inventario/captura',          ['LibertyFin\Controlador\InventarioControlador', 'capturaAccion']);
@@ -531,6 +542,9 @@ $permisos = [
   '/servicios'              => 'ver.servicios',
   '/servicios/guardar'      => 'editar.servicios',
   '/servicios/alternar'     => 'editar.servicios',
+  '/servicios/estado'       => 'editar.servicios',
+  '/servicios/duplicar'     => 'editar.servicios',
+  '/servicios/borrar'       => 'editar.servicios',
   '/servicios/claves-sat'   => 'editar.servicios',
   '/servicios/promociones/guardar'  => 'editar.servicios',
   '/servicios/promociones/alternar' => 'editar.servicios',
@@ -619,6 +633,10 @@ $permisos = [
   '/compras/{id}/recibir'   => 'editar.compras',
   '/compras/{id}/cancelar'  => 'editar.compras',
   '/inventario/conteo'      => 'editar.inventario',
+  '/inventario/conteo/ver'  => 'editar.inventario',
+  '/inventario/movimiento'  => 'ver.inventario',
+  '/inventario/imprimir'    => 'ver.inventario',
+  '/inventario/buscar'      => 'ver.inventario',
   '/inventario/captura'     => 'editar.inventario',
   '/agenda'                 => 'ver.agenda',
   '/agenda/guardar'         => 'editar.agenda',

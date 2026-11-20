@@ -182,6 +182,38 @@ final class Conteo
         return ['contado' => $n, 'esperado' => $esperado, 'diferencia' => round($n - $esperado, 3)];
     }
 
+    /**
+     * Un conteo para verlo o imprimirlo: el encabezado, sus renglones y
+     * los totales.
+     *
+     * En uno cerrado, «el sistema decía» es el `esperado` que se guardó al
+     * contar, que es contra lo que se capturó; en uno abierto se enseña lo
+     * que hay ahora, que es contra lo que se va a ajustar.
+     */
+    public function detalle($conteoId)
+    {
+        $c = $this->porId($conteoId);
+        if (!$c) return null;
+        $abierto = in_array($c['estado'], ['abierto', 'pausado'], true);
+        $lineas = [];
+        $tot = ['productos' => 0, 'diferencias' => 0, 'sobran' => 0.0, 'faltan' => 0.0, 'valor' => 0.0];
+        foreach ($this->lineas($conteoId) as $l) {
+            if ($l['contado'] === null) continue;
+            $sis = $abierto ? (float)$l['ahora'] : (float)$l['esperado'];
+            $dif = round((float)$l['contado'] - $sis, 3);
+            $l['sistema']    = $sis;
+            $l['diferencia'] = $dif;
+            $l['valor_dif']  = round($dif * (float)$l['costo'], 2);
+            $lineas[] = $l;
+            $tot['productos']++;
+            if (abs($dif) >= 0.0005) $tot['diferencias']++;
+            if ($dif > 0) $tot['sobran'] += $dif; else $tot['faltan'] += -$dif;
+            $tot['valor'] += $l['valor_dif'];
+        }
+        $tot['valor'] = round($tot['valor'], 2);
+        return ['conteo' => $c, 'lineas' => $lineas, 'totales' => $tot, 'abierto' => $abierto];
+    }
+
     /** Lo capturado hasta ahora, con lo que el sistema cree que hay AHORA. */
     public function lineas($conteoId, $soloDiferencias = false)
     {
@@ -249,7 +281,8 @@ final class Conteo
         $contados = [];
         foreach ($lineas as $l) $contados[(int)$l['producto_id']] = (float)$l['contado'];
 
-        $r = $inv->conteoGeneral((int)$c['sucursal_id'], $contados, $rot, (int)$c['almacen_id']);
+        $r = $inv->conteoGeneral((int)$c['sucursal_id'], $contados, $rot, (int)$c['almacen_id'],
+                                 'conteo:' . (int)$conteoId);
 
         $this->db->prepare("UPDATE lf_inventario_conteos
                             SET estado='cerrado', cerrado_en=NOW(), nota=? WHERE id=?")

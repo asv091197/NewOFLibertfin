@@ -44,6 +44,9 @@ final class CajaControlador
             // Productos en preventa: se venden sin existencias, con su
             // fecha estimada y su anticipo mínimo (Servicio\Preventas).
             'preventas' => $this->preventasCaja($db),
+            // Los marcados «Agotado» a mano en Productos: la tarjeta lo dice
+            // y Caja los trata como sin existencias.
+            'agotadosMano' => $this->agotadosMano($db),
             // Lo que llega armado: cotización, cita o cliente desde su ficha.
             'precarga'  => $this->precarga($db, (new \LibertyFin\Datos\ConfigRepo($db))->caja()),
             // Los paquetes de sesiones solo se ofrecen con el módulo encendido.
@@ -173,6 +176,21 @@ final class CajaControlador
      * Lo que Caja necesita del inventario, o null si está apagado. Si
      * falla (la base no está al día), Caja vende igual, sin existencias.
      */
+    /**
+     * Los productos marcados «Agotado» a mano: [id => true].
+     * Vacío si la base todavía no tiene la columna (versión 35): Caja no
+     * puede dejar de abrir por un estado de producto.
+     */
+    private function agotadosMano($db)
+    {
+        try {
+            $ids = $db->query("SELECT id FROM productos WHERE agotado = 1 AND activo = 1")->fetchAll(\PDO::FETCH_COLUMN);
+            return array_fill_keys(array_map('intval', $ids), true);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     private function inventarioCaja($db)
     {
         try {

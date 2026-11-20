@@ -30,7 +30,7 @@ use PDO;
 final class Migraciones
 {
     /** Súbelo al agregar una migración nueva. */
-    const VERSION = 34;
+    const VERSION = 35;
 
     /**
      * La versión vive en `lf_ajustes`, no en `sistema_config`.
@@ -1930,6 +1930,68 @@ final class Migraciones
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
+    /**
+     * 35 · Inventario que se lee sin adivinar, y productos con estado.
+     *
+     * MOVIMIENTOS
+     *
+     *  · `anterior`: lo que había en ESE almacén antes del movimiento. Con
+     *    él cada renglón se lee solo —había 10, salieron 3, quedaron 7—,
+     *    y un conteo dice qué decía el sistema y qué se contó.
+     *  · `existencia_sucursal`: el total de la sucursal después. `existencia`
+     *    es la del almacén (Piso o Bodega), y comparar ese número contra la
+     *    pantalla de Existencias, que enseña el total, parecía un error.
+     *  · `lote`: junta los renglones de UNA operación —las dos mitades de un
+     *    traspaso, todo lo de una captura con pistola o de un conteo— para
+     *    verlos y descargarlos como un solo documento.
+     *
+     * PRODUCTOS
+     *
+     *  · `agotado`: el tercer estado, puesto a mano (Activo, Agotado,
+     *    Inactivo). Un producto con existencias en cero también se lee
+     *    agotado sin que nadie lo marque (salvo si está en preventa).
+     *  · `eliminado_en`: borrar no quita la fila —las ventas viejas la
+     *    siguen leyendo—, la saca de todas las listas.
+     *  · `lf_producto_atributos`: etiquetas y atributos (texto, y color si
+     *    se quiere): «Talla: M», «Nuevo», «Color: Rojo».
+     */
+    private static function v35(PDO $db)
+    {
+        if (self::hayTabla($db, 'lf_inventario_movimientos')) {
+            foreach (['anterior'            => "DECIMAL(12,3) NULL DEFAULT NULL",
+                      'existencia_sucursal' => "DECIMAL(12,3) NULL DEFAULT NULL",
+                      'lote'                => "VARCHAR(40) NULL DEFAULT NULL"] as $c => $tipo) {
+                if (!self::hayColumna($db, 'lf_inventario_movimientos', $c)) {
+                    $db->exec("ALTER TABLE lf_inventario_movimientos ADD COLUMN `$c` $tipo");
+                }
+            }
+            if (!self::hayIndice($db, 'lf_inventario_movimientos', 'ix_im_lote')) {
+                $db->exec("CREATE INDEX ix_im_lote ON lf_inventario_movimientos (lote)");
+            }
+        }
+
+        if (self::hayTabla($db, 'productos')) {
+            foreach (['agotado'      => "TINYINT(1) NOT NULL DEFAULT 0",
+                      'eliminado_en' => "DATETIME NULL DEFAULT NULL"] as $c => $tipo) {
+                if (!self::hayColumna($db, 'productos', $c)) {
+                    $db->exec("ALTER TABLE productos ADD COLUMN `$c` $tipo");
+                }
+            }
+        }
+
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS lf_producto_atributos (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                producto_id INT NOT NULL,
+                nombre      VARCHAR(60)  NOT NULL,
+                valor       VARCHAR(120) NULL DEFAULT NULL,
+                color       VARCHAR(7)   NULL DEFAULT NULL,
+                orden       SMALLINT NOT NULL DEFAULT 0,
+                KEY ix_patr_prod (producto_id),
+                KEY ix_patr_nombre (nombre)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
     /** Lo que hace cada versión, para mostrarlo en Mantenimiento. */
     const DESCRIPCIONES = [
         1 => 'Tabla de ajustes propia (lf_ajustes)',
@@ -1965,5 +2027,6 @@ final class Migraciones
         32 => 'Shopify: tienda en línea por empresa, variantes vinculadas a productos por ubicación y órdenes que descuentan existencias',
         33 => 'TikTok Shop: tienda por empresa (con app propia o la de LibertyFin), SKU vinculados a productos por almacén y órdenes que descuentan existencias',
         34 => 'Preventa: productos que se venden antes de tenerlos, con fecha estimada, cupo, anticipo mínimo y entrega posterior',
+        35 => 'Movimientos con lo que había, el total de la sucursal y el documento al que pertenecen; productos con estado agotado, borrado y etiquetas o atributos',
     ];
 }

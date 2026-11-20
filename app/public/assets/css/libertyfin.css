@@ -5229,3 +5229,88 @@ span.lf-signo{pointer-events:none}
   .table-responsive.lf-cards .lf-btn-ghost:has(.lf-txt-card){height:32px;padding:0 12px;
     border:1px solid var(--lf-linea);border-radius:var(--lf-r-pill)}
 }
+
+/* ══════════════════════════════════════════════════════
+   INVENTARIO · versión 35
+   Movimientos con almacén, había/quedó y total de la sucursal; detalle
+   de un documento (traspaso de un lado al otro); captura con buscador;
+   productos con estado, etiquetas y atributos.
+   ══════════════════════════════════════════════════════ */
+.lf-inv-tipo.t-venta{background:var(--lf-vidrio);color:var(--lf-tinta-2)}
+.lf-inv-tipo.t-traspaso{background:color-mix(in srgb,#3b7dd8 13%,transparent);color:#2f67b5}
+.lf-inv-tipo.t-merma{background:var(--lf-rojo-soft);color:var(--lf-rojo)}
+:root[data-theme="dark"] .lf-inv-tipo.t-traspaso{color:#8db6ef}
+.lf-mov-tabla td{vertical-align:top}
+.lf-mov-desglose{padding:0}
+.lf-mov-desglose > summary{list-style:none}
+.lf-mov-desglose > summary::-webkit-details-marker{display:none}
+.lf-mov-desglose > summary h3::before{content:'+ ';font-family:var(--lf-mono);color:var(--lf-brand-2)}
+.lf-mov-desglose[open] > summary h3::before{content:'− '}
+.lf-mov-desglose tfoot td{border-top:2px solid var(--lf-linea)}
+
+/* Detalle de un movimiento: los datos del documento en rejilla. */
+.lf-mov-datos{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px 20px;
+  margin:0;padding:14px 20px 18px}
+.lf-mov-datos > div.ancho{grid-column:1/-1}
+.lf-mov-datos dt{font-size:11.5px;font-weight:600;color:var(--lf-tinta-4);margin:0 0 2px}
+.lf-mov-datos dd{margin:0;font-size:14px;color:var(--lf-tinta)}
+.lf-fila-actual td{background:var(--lf-brand-soft)}
+
+/* Traspaso: de dónde salió → a dónde llegó. */
+.lf-traspaso{display:flex;align-items:stretch;gap:14px;padding:14px 20px 20px;flex-wrap:wrap}
+.lf-traspaso .lado{flex:1;min-width:220px;padding:14px 16px;border:1px solid var(--lf-linea);border-radius:var(--lf-r)}
+.lf-traspaso .lado.sale{box-shadow:inset 3px 0 0 var(--lf-rojo)}
+.lf-traspaso .lado.llega{box-shadow:inset 3px 0 0 var(--lf-brand)}
+.lf-traspaso .lado > small{display:block;font-size:11.5px;color:var(--lf-tinta-4);font-weight:600}
+.lf-traspaso .lado > b{display:block;font-size:15px;margin:2px 0 10px;color:var(--lf-tinta)}
+.lf-traspaso dl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0}
+.lf-traspaso dt{font-size:11px;color:var(--lf-tinta-4);font-weight:600}
+.lf-traspaso dd{margin:0;font-size:14px}
+.lf-traspaso .flecha{align-self:center;font-size:24px;color:var(--lf-tinta-4)}
+@media (max-width:640px){ .lf-traspaso .flecha{transform:rotate(90deg);margin:0 auto} }
+
+/* Captura con pistola: la barra del código es también buscador. */
+.lf-cap-barra{display:flex;gap:8px;align-items:center}
+.lf-cap-busca{position:relative;flex:1;min-width:0;display:flex}
+.lf-cap-busca input{flex:1;min-width:0;font-size:17px;padding:12px 44px 12px 14px;
+  border:1px solid var(--lf-linea-f,var(--lf-linea));border-radius:var(--lf-r);background:var(--lf-sup);color:var(--lf-tinta)}
+.lf-cap-busca input:focus{outline:none;box-shadow:0 0 0 2px var(--lf-brand-ring)}
+.lf-cap-lupa{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;
+  border-radius:8px;background:transparent;color:var(--lf-tinta-3);font-size:20px;line-height:1;cursor:pointer}
+.lf-cap-lupa:hover,.lf-cap-lupa.on{background:var(--lf-vidrio);color:var(--lf-brand-2)}
+.lf-cap-barra > input[type=number]{width:88px;font-size:17px;padding:12px 8px;border:1px solid var(--lf-linea-f,var(--lf-linea));
+  border-radius:var(--lf-r);background:var(--lf-sup);color:var(--lf-tinta)}
+/* La lista abre HACIA ARRIBA: la barra vive pegada al fondo de la pantalla. */
+.lf-cap-lista{position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:40;max-height:min(340px,55vh);
+  overflow-y:auto;margin:0;padding:4px;list-style:none;background:var(--lf-sup);border:1px solid var(--lf-linea);
+  border-radius:var(--lf-r);box-shadow:0 -10px 28px rgba(0,0,0,.16)}
+.lf-cap-lista li{display:grid;grid-template-columns:1fr auto;gap:0 12px;padding:9px 11px;border-radius:7px;cursor:pointer}
+.lf-cap-lista li b{font-size:14px;font-weight:600;color:var(--lf-tinta)}
+.lf-cap-lista li small{grid-column:1;font-size:11.5px;color:var(--lf-tinta-4);font-family:var(--lf-mono)}
+.lf-cap-lista li .hay{grid-column:2;grid-row:1/3;align-self:center;font-family:var(--lf-mono);font-size:12px;color:var(--lf-tinta-3)}
+.lf-cap-lista li:hover,.lf-cap-lista li.activa{background:var(--lf-sup-2)}
+.lf-cap-lista li.nota{display:block;cursor:default;color:var(--lf-tinta-4);font-size:12.5px}
+.lf-cap-lista li.nota:hover{background:none}
+
+/* Productos: estado en la lista y etiquetas o atributos. */
+.lf-prod-acc{display:flex;align-items:center;justify-content:flex-end;gap:2px}
+.lf-estado-sel{width:auto;min-width:96px;height:30px;padding:2px 26px 2px 8px;font-size:12px;margin:0 2px}
+.lf-etiquetas{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.lf-etq{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:999px;font-size:11px;
+  font-weight:500;line-height:1.6;background:var(--lf-vidrio);color:var(--lf-tinta-2);white-space:nowrap}
+.lf-etq b{font-weight:700}
+.lf-etq.con-color{background:color-mix(in srgb,var(--etq) 14%,transparent);color:var(--lf-tinta)}
+.lf-etq.con-color i{width:9px;height:9px;border-radius:50%;background:var(--etq);
+  box-shadow:0 0 0 1px rgba(0,0,0,.12);flex:none}
+.lf-form > .lf-prod-atr{flex:0 0 100%;margin:0}
+.lf-atr-lista{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.lf-atr-fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lf-atr-fila > .form-control{flex:1;min-width:140px}
+.lf-atr-color{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;color:var(--lf-tinta-3);cursor:pointer}
+.lf-atr-color input[type=color]{width:30px;height:30px;padding:2px;border:1px dashed var(--lf-linea-f,var(--lf-linea));
+  border-radius:8px;background:transparent;opacity:.45;cursor:pointer}
+.lf-atr-color input[type=color].on{opacity:1;border-style:solid}
+@media (max-width:640px){
+  .lf-prod-acc{flex-wrap:wrap}
+  .lf-atr-fila > .form-control{flex:1 1 100%}
+}

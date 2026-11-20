@@ -116,14 +116,18 @@ $pcTodo  = array_values(array_filter(array_map(function ($id) use ($pc) {
         // Existencias: solo con Inventario encendido y si el producto las lleva.
         $ex = $inventario['existencias'][(int)$s['id']] ?? null;
         $hay = $ex !== null ? (float)$ex['existencia'] : null;
+        // Marcado «Agotado» en Productos: se trata como sin existencias, y
+        // gana a la preventa (se marca a mano justo para dejar de venderlo).
+        $agotadoMano = isset($agotadosMano[(int)$s['id']]);
         // En preventa no cuentan las existencias: se vende lo que no ha llegado.
-        $pre = $preventas[(int)$s['id']] ?? null;
+        $pre = $agotadoMano ? null : ($preventas[(int)$s['id']] ?? null);
         if ($pre) {
             $hay = null;
             $titulo .= "\nPreventa" . ($pre['llegada'] ? ' · llega ' . date('d/m/Y', strtotime($pre['llegada'])) : '')
                      . ($pre['anticipo'] ? ' · anticipo mínimo ' . rtrim(rtrim(number_format($pre['anticipo'], 2), '0'), '.') . ' %' : '')
                      . ($pre['quedan'] !== null ? ' · quedan ' . \LibertyFin\Servicio\Inventario::num($pre['quedan']) . ' lugares' : '');
         }
+        if ($agotadoMano) { $hay = 0.0; $ex = ['existencia' => 0, 'minimo' => 0]; }
         if ($hay !== null) $titulo .= "\n" . ($hay > 0 ? 'Quedan ' . \LibertyFin\Servicio\Inventario::conUnidad($hay, $s['unidad_medida'] ?? '') : 'Agotado');
         // Por kilo, litro o metro: se vende en fracciones y el precio es por unidad.
         $frac = \LibertyFin\Servicio\Inventario::fraccionable($s['unidad_medida'] ?? '');

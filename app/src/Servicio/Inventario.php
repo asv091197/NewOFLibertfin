@@ -31,7 +31,9 @@ final class Inventario
 {
     /** Los tipos de movimiento, como se leen en pantalla. */
     const TIPOS = [
-        'inicial'    => 'Existencia inicial',
+        // «Registro»: es lo primero que se anota de un producto, cuando se
+        // da de alta con la existencia que ya había en el anaquel.
+        'inicial'    => 'Registro inicial',
         'entrada'    => 'Entrada',
         'salida'     => 'Salida',
         'conteo'     => 'Conteo',
@@ -199,29 +201,62 @@ final class Inventario
              LIMIT " . max(1, min(50, (int)$tope)), [(int)$sucursalId, $l, $l, $l]);
     }
 
-    /** Los productos con inventario de una sucursal, lo que falta primero. */
-    public function listado($sucursalId, $buscar = '', $soloBajos = false)
+    /**
+     * Los productos con inventario de una sucursal, lo que falta primero.
+     *
+     * @param array $filtro  marca, área y tipo (ver FiltrosProducto)
+     * @param string $orden  'estado' (lo que falta primero) o 'nombre'
+     */
+    public function listado($sucursalId, $buscar = '', $soloBajos = false, array $filtro = [],
+                            $tope = 500, $orden = 'estado')
     {
         $s = (int)$sucursalId;
         $w = ['p.activo = 1', 'p.lleva_inventario = 1'];
         $p = [$s];
         if ($buscar !== '') {
-            $w[] = '(p.nombre LIKE ? OR p.codigo LIKE ?)';
-            $l = '%' . $buscar . '%'; $p[] = $l; $p[] = $l;
+            $w[] = '(p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ?)';
+            $l = '%' . $buscar . '%'; $p[] = $l; $p[] = $l; $p[] = $l;
         }
+        list($wf, $pf) = FiltrosProducto::sql($filtro, 'p');
+        $w = array_merge($w, $wf); $p = array_merge($p, $pf);
         $estado = "CASE WHEN COALESCE(ps.stock,0) <= 0 THEN 0
                         WHEN COALESCE(ps.stock_minimo,0) > 0 AND COALESCE(ps.stock,0) <= ps.stock_minimo THEN 1
                         ELSE 2 END";
         if ($soloBajos) $w[] = "$estado < 2";
+        $ord = $orden === 'nombre' ? 'p.nombre' : "$estado, p.nombre";
         return $this->todos("
-            SELECT p.id, p.codigo, p.nombre, p.unidad_medida, p.costo,
+            SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.marca, p.unidad_medida, p.costo,
+                   COALESCE(NULLIF(p.tipo_producto,''),'Estandar') AS tipo_producto,
+                   c.nombre AS categoria,
                    COALESCE(ps.stock,0) AS existencia, COALESCE(ps.stock_minimo,0) AS minimo,
                    $estado AS estado
             FROM productos p
             LEFT JOIN producto_sucursal ps ON ps.producto_id = p.id AND ps.sucursal_id = ?
+            LEFT JOIN categorias c ON c.id = p.categoria_id
             WHERE " . implode(' AND ', $w) . "
-            ORDER BY $estado, p.nombre
-            LIMIT 500", $p);
+            ORDER BY $ord
+            LIMIT " . max(1, min(5000, (int)$tope)), $p);
+    }
+
+    /**
+     * Cuánto hay de cada producto en cada almacén de una sucursal.
+     *
+     * Es lo que le faltaba a Existencias: «hay 40» no dice que 38 están en
+     * la bodega y 2 en el piso, y contar el piso contra 40 parecía un error.
+     *
+     * @return array [producto_id => [almacen_id => existencia]]
+     */
+    public function porAlmacen($sucursalId)
+    {
+        $r = [];
+        foreach ($this->todos("
+            SELECT pa.producto_id, pa.almacen_id, pa.stock
+              FROM lf_producto_almacen pa
+              JOIN lf_almacenes a ON a.id = pa.almacen_id
+             WHERE a.sucursal_id = ? AND a.activo = 1", [(int)$sucursalId]) as $f) {
+            $r[(int)$f['producto_id']][(int)$f['almacen_id']] = (float)$f['stock'];
+        }
+        return $r;
     }
 
     /** Los números de arriba: cuántos, cuántos faltan y cuánto vale lo que hay. */
@@ -240,29 +275,152 @@ final class Inventario
                 'bajos' => (int)($f['bajos'] ?? 0), 'valor' => round((float)($f['valor'] ?? 0), 2)];
     }
 
-    /** La bitácora, lo más nuevo primero. */
-    public function movimientos(array $f = [])
+    /** Las condiciones de la bitácora, compartidas por la lista, el resumen y el PDF. */
+    private function filtroMovimientos(array $f)
     {
         $w = ['1 = 1']; $p = [];
         if (!empty($f['desde']))    { $w[] = 'm.creado_en >= ?'; $p[] = $f['desde'] . ' 00:00:00'; }
         if (!empty($f['hasta']))    { $w[] = 'm.creado_en < ?';  $p[] = date('Y-m-d', strtotime($f['hasta'] . ' +1 day')) . ' 00:00:00'; }
         if (!empty($f['sucursal'])) { $w[] = 'm.sucursal_id = ?'; $p[] = (int)$f['sucursal']; }
+        if (!empty($f['almacen']))  { $w[] = 'm.almacen_id = ?'; $p[] = (int)$f['almacen']; }
         if (!empty($f['producto'])) { $w[] = 'm.producto_id = ?'; $p[] = (int)$f['producto']; }
         if (!empty($f['tipo']) && isset(self::TIPOS[$f['tipo']])) { $w[] = 'm.tipo = ?'; $p[] = $f['tipo']; }
         if (!empty($f['q'])) {
-            $w[] = '(pr.nombre LIKE ? OR pr.codigo LIKE ?)';
-            $l = '%' . $f['q'] . '%'; $p[] = $l; $p[] = $l;
+            $w[] = '(pr.nombre LIKE ? OR pr.codigo LIKE ? OR pr.codigo_barras LIKE ?)';
+            $l = '%' . $f['q'] . '%'; $p[] = $l; $p[] = $l; $p[] = $l;
         }
+        return [$w, $p];
+    }
+
+    /**
+     * La bitácora, lo más nuevo primero.
+     *
+     * Trae el almacén de origen y de destino con su sucursal: un traspaso
+     * se lee «Bodega de Matriz → Piso de Centro», no «Traspaso, −5».
+     */
+    public function movimientos(array $f = [])
+    {
+        list($w, $p) = $this->filtroMovimientos($f);
         return $this->todos("
             SELECT m.*, pr.nombre AS producto, pr.codigo, pr.unidad_medida,
-                   s.nombre AS sucursal, v.codigo_venta
+                   s.nombre AS sucursal, v.codigo_venta,
+                   a.nombre  AS almacen,  a.tipo AS almacen_tipo,
+                   ad.nombre AS almacen_destino, sd.nombre AS sucursal_destino,
+                   ad.sucursal_id AS sucursal_destino_id
             FROM lf_inventario_movimientos m
-            LEFT JOIN productos pr  ON pr.id = m.producto_id
-            LEFT JOIN sucursales s  ON s.id = m.sucursal_id
-            LEFT JOIN ventas v      ON v.id = m.venta_id
+            LEFT JOIN productos pr   ON pr.id = m.producto_id
+            LEFT JOIN sucursales s   ON s.id = m.sucursal_id
+            LEFT JOIN ventas v       ON v.id = m.venta_id
+            LEFT JOIN lf_almacenes a  ON a.id = m.almacen_id
+            LEFT JOIN lf_almacenes ad ON ad.id = m.almacen_destino_id
+            LEFT JOIN sucursales sd  ON sd.id = ad.sucursal_id
             WHERE " . implode(' AND ', $w) . "
             ORDER BY m.creado_en DESC, m.id DESC
-            LIMIT " . max(1, min(1000, (int)($f['tope'] ?? 300))), $p);
+            LIMIT " . max(1, min(5000, (int)($f['tope'] ?? 300))), $p);
+    }
+
+    /**
+     * Entradas y salidas desglosadas: cuánto entró y cuánto salió por cada
+     * tipo de movimiento, con los mismos filtros de la lista.
+     *
+     * @return array [tipo => ['entro' => n, 'salio' => n, 'renglones' => n]]
+     */
+    public function resumenMovimientos(array $f = [])
+    {
+        list($w, $p) = $this->filtroMovimientos($f);
+        $r = [];
+        foreach ($this->todos("
+            SELECT m.tipo,
+                   COALESCE(SUM(CASE WHEN m.cantidad > 0 THEN m.cantidad ELSE 0 END),0) AS entro,
+                   COALESCE(SUM(CASE WHEN m.cantidad < 0 THEN -m.cantidad ELSE 0 END),0) AS salio,
+                   COUNT(*) AS renglones
+              FROM lf_inventario_movimientos m
+              LEFT JOIN productos pr ON pr.id = m.producto_id
+             WHERE " . implode(' AND ', $w) . "
+             GROUP BY m.tipo", $p) as $x) {
+            $r[$x['tipo']] = ['entro' => round((float)$x['entro'], 3), 'salio' => round((float)$x['salio'], 3),
+                              'renglones' => (int)$x['renglones']];
+        }
+        return $r;
+    }
+
+    /** Un movimiento con todo lo que hace falta para leerlo. */
+    public function movimiento($id)
+    {
+        $r = $this->movimientosDonde('m.id = ?', [(int)$id]);
+        return $r ? $r[0] : null;
+    }
+
+    /**
+     * Los renglones que forman la MISMA operación que este movimiento.
+     *
+     * Un traspaso son dos renglones (sale de uno, entra al otro); una
+     * captura con pistola o un conteo, uno por producto; una venta, uno
+     * por producto del ticket. Para ver o descargar «la entrada» completa
+     * hay que juntarlos.
+     *
+     * Lo nuevo trae `lote`. Lo de antes de la versión 35 no, así que se
+     * reconoce como se puede: por la venta, por la nota («Captura #12»,
+     * «Conteo #4») o, en un traspaso, por su pareja exacta.
+     */
+    public function grupoDe(array $m)
+    {
+        if (!empty($m['lote'])) {
+            return $this->movimientosDonde('m.lote = ?', [$m['lote']]);
+        }
+        if (!empty($m['venta_id'])) {
+            return $this->movimientosDonde('m.venta_id = ? AND m.tipo = ?', [(int)$m['venta_id'], $m['tipo']]);
+        }
+        if (preg_match('/^(Captura|Conteo) #(\d+)/', (string)$m['nota'], $x)) {
+            $base = $x[1] . ' #' . $x[2];
+            return $this->movimientosDonde("m.tipo = ? AND (m.nota = ? OR m.nota LIKE ?)",
+                                           [$m['tipo'], $base, $base . ' ·%']);
+        }
+        if ($m['tipo'] === 'traspaso' && !empty($m['almacen_destino_id'])) {
+            $pareja = $this->movimientosDonde("
+                m.id <> ? AND m.tipo = 'traspaso' AND m.producto_id = ?
+                AND m.almacen_id = ? AND m.almacen_destino_id = ?
+                AND ABS(m.cantidad + ?) < 0.0005
+                AND m.creado_en BETWEEN DATE_SUB(?, INTERVAL 5 SECOND) AND DATE_ADD(?, INTERVAL 5 SECOND)",
+                [(int)$m['id'], (int)$m['producto_id'], (int)$m['almacen_destino_id'], (int)$m['almacen_id'],
+                 (float)$m['cantidad'], $m['creado_en'], $m['creado_en']]);
+            $todos = array_merge([$m], array_slice($pareja, 0, 1));
+            // La salida primero: se lee de dónde a dónde.
+            usort($todos, function ($a, $b) { return (float)$a['cantidad'] <=> (float)$b['cantidad']; });
+            return $todos;
+        }
+        return [$m];
+    }
+
+    private function movimientosDonde($donde, array $p)
+    {
+        return $this->todos("
+            SELECT m.*, pr.nombre AS producto, pr.codigo, pr.codigo_barras, pr.unidad_medida, pr.marca,
+                   s.nombre AS sucursal, v.codigo_venta,
+                   a.nombre  AS almacen,  ad.nombre AS almacen_destino,
+                   sd.nombre AS sucursal_destino
+              FROM lf_inventario_movimientos m
+              LEFT JOIN productos pr   ON pr.id = m.producto_id
+              LEFT JOIN sucursales s   ON s.id = m.sucursal_id
+              LEFT JOIN ventas v       ON v.id = m.venta_id
+              LEFT JOIN lf_almacenes a  ON a.id = m.almacen_id
+              LEFT JOIN lf_almacenes ad ON ad.id = m.almacen_destino_id
+              LEFT JOIN sucursales sd  ON sd.id = ad.sucursal_id
+             WHERE " . $donde . "
+             ORDER BY m.id
+             LIMIT 2000", $p);
+    }
+
+    /**
+     * Lo que había antes de un movimiento.
+     *
+     * Los renglones nuevos lo traen guardado. Los de antes de la versión
+     * 34 no, pero se deduce: lo que quedó menos lo que se movió.
+     */
+    public static function habia(array $m)
+    {
+        if (isset($m['anterior']) && $m['anterior'] !== null && $m['anterior'] !== '') return (float)$m['anterior'];
+        return round((float)$m['existencia'] - (float)$m['cantidad'], 3);
     }
 
     // ════════════════════════════════════════════════════════
@@ -376,7 +534,8 @@ final class Inventario
             $nota = self::MOTIVOS_MERMA[$m] . ($nota !== '' ? ' · ' . $nota : '');
         }
 
-        $extra = ['nota' => $nota, 'almacen_id' => (int)($d['almacen_id'] ?? 0) ?: null];
+        $extra = ['nota' => $nota, 'almacen_id' => (int)($d['almacen_id'] ?? 0) ?: null,
+                  'lote' => !empty($d['lote']) ? mb_substr((string)$d['lote'], 0, 40) : null];
         if ($tipo === 'entrada') {
             $costo = trim((string)($d['costo'] ?? ''));
             if ($costo !== '') {
@@ -468,20 +627,24 @@ final class Inventario
             return $a['nombre'] . ' de ' . ($s ?: 'otra sucursal');
         };
         $nota = mb_substr(trim((string)$nota), 0, 200);
+        // Las dos mitades llevan el mismo lote: así el detalle enseña el
+        // traspaso entero —cuánto se fue, cuánto quedó, cuánto llegó—.
+        $lote = 'traspaso:' . bin2hex(random_bytes(6));
 
-        return $this->enTransaccion(function () use ($productoId, $o, $d, $cantidad, $nota, $rot) {
+        return $this->enTransaccion(function () use ($productoId, $o, $d, $cantidad, $nota, $rot, $lote) {
             $hay = (float)($this->enAlmacen($productoId, (int)$o['id'], true) ?? 0);
             if ($hay + 0.0005 < $cantidad) {
                 throw new \InvalidArgumentException(
                     'En ' . $rot($o) . ' solo hay ' . self::num(max(0, $hay)) . '.');
             }
             $sale  = $this->mover($productoId, (int)$o['sucursal_id'], -$cantidad, 'traspaso',
-                        ['almacen_id' => (int)$o['id'], 'almacen_destino_id' => (int)$d['id'],
+                        ['almacen_id' => (int)$o['id'], 'almacen_destino_id' => (int)$d['id'], 'lote' => $lote,
                          'nota' => 'A ' . $rot($d) . ($nota !== '' ? ' · ' . $nota : '')]);
             $llega = $this->mover($productoId, (int)$d['sucursal_id'], $cantidad, 'traspaso',
-                        ['almacen_id' => (int)$d['id'], 'almacen_destino_id' => (int)$o['id'],
+                        ['almacen_id' => (int)$d['id'], 'almacen_destino_id' => (int)$o['id'], 'lote' => $lote,
                          'nota' => 'De ' . $rot($o) . ($nota !== '' ? ' · ' . $nota : '')]);
-            return ['existencia' => $sale, 'destino' => $llega, 'cambio' => -$cantidad];
+            return ['existencia' => $sale, 'destino' => $llega, 'cambio' => -$cantidad,
+                    'origen_nombre' => $rot($o), 'destino_nombre' => $rot($d)];
         });
     }
 
@@ -493,7 +656,7 @@ final class Inventario
      * @param array $contado [producto_id => lo contado]
      * @return array ['contados' => n, 'diferencias' => n]
      */
-    public function conteoGeneral($sucursalId, array $contado, $nota = '', $almacenId = null)
+    public function conteoGeneral($sucursalId, array $contado, $nota = '', $almacenId = null, $lote = null)
     {
         $suc = (int)$sucursalId;
         if (!$this->uno("SELECT id FROM sucursales WHERE id = ? AND COALESCE(activo,1) = 1", [$suc])) {
@@ -516,14 +679,15 @@ final class Inventario
         if (!$pide) throw new \InvalidArgumentException('No capturaste ningún conteo.');
         $llevan = $this->llevan(array_keys($pide));
         $nota = mb_substr(trim((string)$nota), 0, 200);
-        return $this->enTransaccion(function () use ($pide, $llevan, $suc, $nota, $almacen) {
+        return $this->enTransaccion(function () use ($pide, $llevan, $suc, $nota, $almacen, $lote) {
             $n = 0; $dif = 0;
             foreach ($pide as $id => $c) {
                 if (!isset($llevan[$id])) continue;
                 $hay = (float)($this->enAlmacen($id, $almacen, true) ?? 0);
                 $delta = round($c - $hay, 3);
                 $this->mover($id, $suc, $delta, 'conteo',
-                             ['almacen_id' => $almacen, 'nota' => $nota !== '' ? $nota : 'Conteo general']);
+                             ['almacen_id' => $almacen, 'lote' => $lote,
+                              'nota' => $nota !== '' ? $nota : 'Conteo general']);
                 $n++;
                 if (abs($delta) >= 0.0005) $dif++;
             }
@@ -629,16 +793,19 @@ final class Inventario
                                 VALUES (?,?,?,0,1)")->execute([$productoId, $sucursalId, $sucTotal]);
         }
 
-        $this->db->prepare("
-            INSERT INTO lf_inventario_movimientos
-                (producto_id, sucursal_id, almacen_id, almacen_destino_id, tipo, cantidad, existencia,
-                 costo, proveedor_id, proveedor, nota, venta_id, usuario_id, usuario_nombre, creado_en)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
-            ->execute([$productoId, $sucursalId, $almacen, $extra['almacen_destino_id'] ?? null,
-                       $tipo, round($delta, 3), $queda,
-                       $extra['costo'] ?? null, $extra['proveedor_id'] ?? null, $extra['proveedor'] ?? null,
-                       ($extra['nota'] ?? '') !== '' ? $extra['nota'] : null, $extra['venta_id'] ?? null,
-                       $_SESSION['usuario_id'] ?? null, $_SESSION['usuario_nombre'] ?? null]);
+        $this->anotar([
+            'producto_id' => $productoId, 'sucursal_id' => $sucursalId, 'almacen_id' => $almacen,
+            'almacen_destino_id' => $extra['almacen_destino_id'] ?? null,
+            'tipo' => $tipo, 'cantidad' => round($delta, 3), 'existencia' => $queda,
+            'costo' => $extra['costo'] ?? null, 'proveedor_id' => $extra['proveedor_id'] ?? null,
+            'proveedor' => $extra['proveedor'] ?? null,
+            'nota' => ($extra['nota'] ?? '') !== '' ? $extra['nota'] : null,
+            'venta_id' => $extra['venta_id'] ?? null,
+            'usuario_id' => $_SESSION['usuario_id'] ?? null, 'usuario_nombre' => $_SESSION['usuario_nombre'] ?? null,
+            // Versión 35: lo que había, el total de la sucursal y el documento.
+            'anterior' => round((float)($hay ?? 0), 3), 'existencia_sucursal' => $sucTotal,
+            'lote' => $extra['lote'] ?? null,
+        ]);
 
         // La suma de todas las sucursales, para quien lea productos.stock.
         $this->db->prepare("UPDATE productos SET stock =
@@ -660,6 +827,35 @@ final class Inventario
         TikTokInventario::marcar($this->db, $productoId);
 
         return $queda;
+    }
+
+    /** Columnas que llegaron con la versión 35; sin ellas se anota como antes. */
+    const COLS_V35 = ['anterior', 'existencia_sucursal', 'lote'];
+    private static $sinV35 = false;
+
+    /**
+     * Escribe el renglón de la bitácora.
+     *
+     * Si la base todavía no tiene las columnas de la versión 35, se anota
+     * sin ellas en vez de fallar: este INSERT corre dentro de cada venta, y
+     * una migración atrasada no puede dejar a una caja sin cobrar. En MySQL
+     * un INSERT rechazado no tumba la transacción, así que el reintento va
+     * en la misma.
+     */
+    private function anotar(array $c)
+    {
+        if (self::$sinV35) $c = array_diff_key($c, array_flip(self::COLS_V35));
+        $sql = "INSERT INTO lf_inventario_movimientos (`" . implode('`,`', array_keys($c)) . "`, creado_en)
+                VALUES (" . str_repeat('?,', count($c)) . "NOW())";
+        try {
+            $this->db->prepare($sql)->execute(array_values($c));
+        } catch (\PDOException $e) {
+            if (self::$sinV35 || strpos($e->getMessage(), 'Unknown column') === false) throw $e;
+            self::$sinV35 = true;
+            error_log('[LibertyFin] movimientos sin columnas de la v35: ' . $e->getMessage()
+                    . ' · corre php app/bin/migrar.php --aplicar');
+            $this->anotar($c);
+        }
     }
 
     /** El almacén al que cargar un movimiento: el pedido, o el principal. */
@@ -702,6 +898,84 @@ final class Inventario
     // ════════════════════════════════════════════════════════
     //  AYUDANTES
     // ════════════════════════════════════════════════════════
+
+    /** Lo que hay de un producto en toda una sucursal, sumando sus almacenes. */
+    public function totalEnSucursal($productoId, $sucursalId)
+    {
+        return $this->sumaDeSucursal($productoId, $sucursalId);
+    }
+
+    /**
+     * El nombre del documento al que pertenece un movimiento, como lo dice
+     * la gente: «Entrada con pistola #12», «Venta V-0034», «Conteo #4».
+     */
+    public static function documento(array $m)
+    {
+        $lote = (string)($m['lote'] ?? '');
+        $tipo = self::TIPOS[$m['tipo'] ?? ''] ?? ucfirst((string)($m['tipo'] ?? 'Movimiento'));
+        if (preg_match('/^captura:(\d+)$/', $lote, $x)) return $tipo . ' con pistola #' . $x[1];
+        if (preg_match('/^conteo:(\d+)$/', $lote, $x))  return 'Conteo #' . $x[1];
+        if (!empty($m['venta_id'])) {
+            return ($m['tipo'] === 'devolucion' ? 'Devolución de la venta ' : 'Venta ')
+                 . ($m['codigo_venta'] ?: '#' . (int)$m['venta_id']);
+        }
+        if (preg_match('/^Captura #(\d+)/', (string)($m['nota'] ?? ''), $x)) return $tipo . ' con pistola #' . $x[1];
+        if (preg_match('/^Conteo #(\d+)/', (string)($m['nota'] ?? ''), $x))  return 'Conteo #' . $x[1];
+        if (($m['tipo'] ?? '') === 'traspaso') {
+            return 'Traspaso del ' . date('d/m/Y H:i', strtotime((string)$m['creado_en']));
+        }
+        return $tipo . ' #' . (int)($m['id'] ?? 0);
+    }
+
+    /**
+     * Dónde pasó, para la columna de la bitácora: «Bodega», o en un
+     * traspaso «Bodega → Piso (Centro)», siempre de dónde salió a dónde
+     * llegó, sea cual sea la mitad que se esté leyendo.
+     */
+    public static function rutaAlmacen(array $m)
+    {
+        $aqui = (string)($m['almacen'] ?? '');
+        if (($m['tipo'] ?? '') !== 'traspaso' || empty($m['almacen_destino'])) return $aqui;
+        $otra = (string)$m['almacen_destino'];
+        $sOtra = (string)($m['sucursal_destino'] ?? '');
+        if ($sOtra !== '' && $sOtra !== (string)($m['sucursal'] ?? '')) $otra .= ' (' . $sOtra . ')';
+        return (float)$m['cantidad'] < 0 ? $aqui . ' → ' . $otra : $otra . ' → ' . $aqui;
+    }
+
+    /** «Piso · Matriz»: el almacén y su sucursal. */
+    public static function lugar(array $m)
+    {
+        return trim(($m['almacen'] ?: 'Almacén') . ' · ' . ($m['sucursal'] ?? ''), ' ·');
+    }
+
+    /** Venta, proveedor, costo y nota en una línea de texto (para el PDF). */
+    public static function detalleTexto(array $m)
+    {
+        $t = [];
+        if (!empty($m['venta_id'])) $t[] = 'Venta ' . ($m['codigo_venta'] ?: '#' . (int)$m['venta_id']);
+        if (!empty($m['proveedor'])) $t[] = $m['proveedor'];
+        if (isset($m['costo']) && $m['costo'] !== null) $t[] = \LibertyFin\Dominio\Dinero::pesos($m['costo']) . ' c/u';
+        if (!empty($m['nota'])) $t[] = $m['nota'];
+        return implode(' · ', $t);
+    }
+
+    /**
+     * Los renglones de un traspaso, en parejas por producto: la mitad que
+     * salió y la que llegó. Si una falta (un renglón viejo sin pareja), esa
+     * mitad queda en null y la pantalla lo dice.
+     *
+     * @return array [['sale' => ?array, 'llega' => ?array], ...]
+     */
+    public static function traspasosEnPares(array $grupo)
+    {
+        $pares = [];
+        foreach ($grupo as $g) {
+            $k = (int)$g['producto_id'];
+            if (!isset($pares[$k])) $pares[$k] = ['sale' => null, 'llega' => null];
+            $pares[$k][(float)$g['cantidad'] < 0 ? 'sale' : 'llega'] = $g;
+        }
+        return array_values($pares);
+    }
 
     /** "5", "2.5", "0.125": sin ceros de más. */
     public static function num($n)

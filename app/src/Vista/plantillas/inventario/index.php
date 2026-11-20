@@ -9,6 +9,17 @@ $token = $_SESSION['lf_token'];
 $varias = count($sucursales) > 1;
 $conU = function ($n, $u) { return I::conUnidad($n, $u); };
 $estados = [0 => ['Agotado', 'bg-danger'], 1 => ['Bajo su mínimo', 'bg-warning'], 2 => ['Bien', 'bg-success']];
+// Para el value de un <input type="number">: sin separador de miles.
+// I::num() pone «1,250» y el navegador deja vacío lo que no es número,
+// así que un conteo de mil piezas o más se veía borrado al volver.
+$numIn = function ($n) { return rtrim(rtrim(number_format((float)$n, 3, '.', ''), '0'), '.'); };
+// Piso, Bodega…: una columna por almacén, solo si la sucursal tiene más de uno.
+$verAlm = count($almacenes ?? []) > 1;
+$principalId = 0;
+foreach (($almacenes ?? []) as $a) if (!empty($a['es_principal'])) $principalId = (int)$a['id'];
+// Los filtros vigentes, para que los enlaces (PDF, pestañas) no los pierdan.
+$qFiltro = array_filter(['marca' => $filtro['marca'] ?? '', 'area' => (int)($filtro['area'] ?? 0) ?: '',
+                         'tipo' => $filtro['tipo'] ?? ''], function ($v) { return $v !== ''; });
 ?>
 
 <?php if ($aviso): ?>
@@ -111,7 +122,10 @@ $estados = [0 => ['Agotado', 'bg-danger'], 1 => ['Bajo su mínimo', 'bg-warning'
 <?php if ($puedeEditar && $productos): $tipoSel = $mover ?: 'entrada'; ?>
 <details class="lf-alta" id="invMover" <?= $mover ? 'open' : '' ?>>
   <summary><?= W::icono('mas','16px') ?> Registrar entrada, salida o conteo</summary>
-  <form method="post" action="/inventario/mover" class="lf-form lf-inv-form" id="formMover">
+  <form method="post" action="/inventario/mover" class="lf-form lf-inv-form" id="formMover"
+        data-principal="<?= (int)$principalId ?>"
+        data-almacenes="<?= P::e(json_encode((object)array_column(array_map(function ($a) {
+            return ['id' => (string)(int)$a['id'], 'n' => $a['nombre']]; }, $almacenes ?? []), 'n', 'id'))) ?>">
     <input type="hidden" name="token" value="<?= P::e($token) ?>">
     <?php if (!$varias): ?><input type="hidden" name="sucursal_id" value="<?= (int)$sucursal ?>"><?php endif; ?>
 
@@ -150,10 +164,15 @@ $estados = [0 => ['Agotado', 'bg-danger'], 1 => ['Bajo su mínimo', 'bg-warning'
              value="<?= $sel ? P::e($sel['codigo'] . ' · ' . $sel['nombre']) : '' ?>">
       <input type="hidden" name="producto_id" id="mProd" value="<?= $sel ? (int)$sel['id'] : '' ?>">
       <datalist id="mLista">
-        <?php foreach ($productos as $p): ?>
+        <?php foreach ($productos as $p):
+          /* Lo que hay en CADA almacén: el conteo y la salida mueven uno
+             solo, y la vista previa tiene que hablar de ése, no del total. */
+          $enAlm = [];
+          foreach (($porAlmacen[(int)$p['id']] ?? []) as $aid => $v) $enAlm[(string)$aid] = (float)$v; ?>
           <option value="<?= P::e($p['codigo'] . ' · ' . $p['nombre']) ?>"
                   data-id="<?= (int)$p['id'] ?>"
-                  data-hay="<?= P::e(I::num($p['existencia'])) ?>"
+                  data-hay="<?= P::e($numIn($p['existencia'])) ?>"
+                  data-alm="<?= P::e(json_encode((object)$enAlm)) ?>"
                   data-u="<?= P::e(I::abrev($p['unidad_medida'])) ?>"><?= P::e($conU($p['existencia'], $p['unidad_medida'])) ?></option>
         <?php endforeach; ?>
       </datalist>
@@ -240,28 +259,45 @@ $estados = [0 => ['Agotado', 'bg-danger'], 1 => ['Bajo su mínimo', 'bg-warning'
 </details>
 <?php endif; ?>
 
+<?php $qExist = array_merge(['que' => 'existencias', 's' => (int)$sucursal], $qFiltro,
+        array_filter(['q' => $buscar, 'bajos' => $bajos ? '1' : ''], function ($v) { return $v !== ''; })); ?>
 <form class="lf-filtros" method="get" action="/inventario">
   <input type="hidden" name="s" value="<?= (int)$sucursal ?>">
   <div class="lf-search">
     <?= W::icono('buscar','15px') ?>
-    <input type="search" name="q" value="<?= P::e($buscar) ?>" placeholder="Producto o código">
+    <input type="search" name="q" value="<?= P::e($buscar) ?>" placeholder="Producto, código o código de barras">
   </div>
+  <?php P::parcial('parciales/filtros-producto', ['opcionesFiltro' => $opcionesFiltro, 'filtro' => $filtro]); ?>
   <label class="lf-inv-check"><input type="checkbox" name="bajos" value="1" <?= $bajos ? 'checked' : '' ?>
          onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"> Solo lo que falta</label>
   <button class="btn btn-secondary btn-sm" type="submit">Filtrar</button>
+  <?php if ($buscar !== '' || $bajos || $qFiltro): ?>
+    <a class="lf-link" href="/inventario?s=<?= (int)$sucursal ?>">Quitar filtros</a>
+  <?php endif; ?>
+  <span style="flex:1"></span>
+  <?php /* El reporte sale con los mismos filtros que la tabla: lo que se
+           ve es lo que se imprime. */ ?>
+  <a class="btn btn-secondary btn-sm" href="/inventario/imprimir?<?= P::e(http_build_query($qExist + ['auto' => 1])) ?>"
+     target="_blank" rel="noopener" title="Reporte de existencias para imprimir o guardar como PDF">
+    <?= W::icono('descargar','14px') ?> Reporte PDF</a>
 </form>
 
 <section class="card">
   <div class="table-responsive lf-cards" style="padding:0 12px 6px">
     <table class="table table-hover lf-inv-tabla">
       <thead><tr>
-        <th>Producto</th><th class="text-end">Hay</th><th class="text-end">Mínimo</th><th>Estado</th>
+        <th>Producto</th>
+        <?php if ($verAlm): foreach ($almacenes as $a): ?>
+          <th class="text-end" title="Lo que hay en <?= P::e($a['nombre']) ?>"><?= P::e($a['nombre']) ?></th>
+        <?php endforeach; endif; ?>
+        <th class="text-end"><?= $verAlm ? 'Total' . ($varias ? ' sucursal' : '') : 'Hay' ?></th>
+        <th class="text-end">Mínimo</th><th>Estado</th>
         <?php if ($puedeEditar): ?><th></th><?php endif; ?>
       </tr></thead>
       <tbody>
       <?php if (!$listado): ?>
-        <tr><td colspan="5" class="lf-inv-vacio">
-          <?php if ($buscar !== '' || $bajos): ?>
+        <tr><td colspan="<?= 5 + ($verAlm ? count($almacenes) : 0) ?>" class="lf-inv-vacio">
+          <?php if ($buscar !== '' || $bajos || $qFiltro): ?>
             Nada coincide con el filtro.
           <?php else: ?>
             Ningún producto lleva existencias todavía.<br>
@@ -272,8 +308,14 @@ $estados = [0 => ['Agotado', 'bg-danger'], 1 => ['Bajo su mínimo', 'bg-warning'
       <?php foreach ($listado as $p): $e = $estados[(int)$p['estado']]; ?>
         <tr>
           <td data-label="Producto"><b class="lf-inv-nom"><?= P::e($p['nombre']) ?></b>
-            <small class="lf-inv-cod"><?= P::e($p['codigo']) ?></small></td>
-          <td data-label="Hay" class="text-end lf-mono lf-inv-hay<?= (float)$p['existencia'] <= 0 ? ' mal' : '' ?>">
+            <small class="lf-inv-cod"><?= P::e($p['codigo']) ?><?php
+              foreach (array_filter([$p['marca'] ?? '', $p['categoria'] ?? '']) as $extra): ?> · <?= P::e($extra) ?><?php endforeach; ?></small></td>
+          <?php if ($verAlm): foreach ($almacenes as $a):
+            $va = $porAlmacen[(int)$p['id']][(int)$a['id']] ?? 0.0; ?>
+            <td data-label="<?= P::e($a['nombre']) ?>" class="text-end lf-mono<?= $va < 0 ? ' mal' : '' ?>"
+                style="<?= abs($va) < 0.0005 ? 'color:var(--lf-tinta-4)' : '' ?>"><?= P::e(I::num($va)) ?></td>
+          <?php endforeach; endif; ?>
+          <td data-label="<?= $verAlm ? 'Total' : 'Hay' ?>" class="text-end lf-mono lf-inv-hay<?= (float)$p['existencia'] <= 0 ? ' mal' : '' ?>">
             <?= P::e($conU($p['existencia'], $p['unidad_medida'])) ?></td>
           <td data-label="Mínimo" class="text-end lf-mono"><?= (float)$p['minimo'] > 0 ? P::e(I::num($p['minimo'])) : '–' ?></td>
           <td data-label="Estado"><span class="badge <?= $e[1] ?>"><?= $e[0] ?></span></td>
@@ -350,9 +392,30 @@ $estados = [0 => ['Agotado', 'bg-danger'], 1 => ['Bajo su mínimo', 'bg-warning'
 
     var o = emparejar(), c = parseFloat(cant.value);
     if (!o || isNaN(c)) { queda.textContent = ''; return; }
-    var hay = parseFloat(String(o.dataset.hay).replace(/,/g, '')) || 0, u = o.dataset.u ? ' ' + o.dataset.u : '';
+    var total = parseFloat(String(o.dataset.hay).replace(/,/g, '')) || 0, u = o.dataset.u ? ' ' + o.dataset.u : '';
+
+    /* EL MOVIMIENTO TOCA UN ALMACÉN, NO LA SUCURSAL ENTERA.
+       Antes la cuenta se hacía contra el total: con 10 en el piso y 5 en
+       la bodega, «Lo conté: 12» prometía «quedarán 12» y la tabla
+       terminaba en 17. Ahora se dice en qué almacén y cuánto quedará en
+       los dos lados. */
+    var alms = {}, nombres = {};
+    try { alms = JSON.parse(o.dataset.alm || '{}'); } catch (e) {}
+    try { nombres = JSON.parse(f.dataset.almacenes || '{}'); } catch (e) {}
+    var selAlm = document.getElementById('mAlm');
+    var almId = selAlm ? selAlm.value : (f.dataset.principal || '');
+    var variosAlm = Object.keys(nombres).length > 1;
+    var hay = variosAlm ? (parseFloat(alms[almId]) || 0) : total;
     var fin = t === 'entrada' ? hay + c : ((t === 'conteo') ? c : hay - c);
-    queda.textContent = 'Hay ' + num(hay) + u + ' → quedarán ' + num(fin) + u;
+    var donde = variosAlm && nombres[almId] ? 'En ' + nombres[almId] + ' ' : '';
+    var txt = t === 'conteo'
+      ? donde + (donde ? 'el sistema dice ' : 'El sistema dice ') + num(hay) + u + ' → quedará en ' + num(fin) + u
+        + (Math.abs(fin - hay) < 0.0005 ? ' (cuadra)' : ' (' + (fin > hay ? '+' : '−') + num(Math.abs(fin - hay)) + ')')
+      : (donde ? donde + 'hay ' : 'Hay ') + num(hay) + u + ' → quedarán ' + num(fin) + u;
+    if (variosAlm && t !== 'traspaso') {
+      txt += ' · en toda la sucursal: ' + num(total) + ' → ' + num(total - hay + fin) + u;
+    }
+    queda.textContent = txt;
     queda.classList.toggle('mal', fin < 0);
   }
 
@@ -481,6 +544,10 @@ $ROTULO = [
    tienda puede seguir vendiendo mientras alguien cuenta. */
 $enCurso  = !empty($conteo);
 $pausado  = $enCurso && $conteo['estado'] === 'pausado';
+$buscarC  = (string)($buscar ?? '');
+$hayFiltroC = $buscarC !== '' || $qFiltro;
+// Los filtros de la lista, para la hoja imprimible y para volver a ellos al guardar.
+$qConteoFiltro = $qFiltro + ($buscarC !== '' ? ['q' => $buscarC] : []);
 ?>
 
 <?php if (!$enCurso): /* ── Nadie está contando: se empieza uno ── */ ?>
@@ -488,9 +555,10 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
   <div class="card-header"><span>
     <h3 class="card-title">Conteo físico<?= $varias ? ' · ' . P::e($subtitulo) : '' ?></h3>
     <small class="lf-inv-sub">Cuenta lo que hay en el anaquel. Puedes pausarlo y seguir después:
-      nada se ajusta hasta que lo finalices, así que la caja puede seguir cobrando mientras cuentas.</small>
+      nada se ajusta hasta que lo finalices, así que la caja puede seguir cobrando mientras cuentas.
+      Ya iniciado, puedes filtrar por marca, área o tipo para contar por partes.</small>
   </span></div>
-  <?php if (!$listado): ?>
+  <?php if (!$listado && !$hayFiltroC): ?>
     <div class="card-body lf-inv-vacio">Ningún producto lleva existencias todavía.</div>
   <?php else: ?>
   <form method="post" action="/inventario/conteo" class="lf-form" style="padding:16px 18px;gap:12px">
@@ -518,33 +586,34 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
   <?php endif; ?>
 </section>
 
-<?php if (!empty($recientes)): ?>
-<section class="card">
-  <div class="card-header"><span><h3 class="card-title">Conteos anteriores</h3></span></div>
-  <div class="table-responsive lf-cards" style="padding:0 12px 6px">
-    <table class="table">
-      <thead><tr><th>Conteo</th><th>Almacén</th><th class="text-end">Capturados</th><th>Estado</th><th>Cuándo</th></tr></thead>
-      <tbody>
-      <?php foreach ($recientes as $c): ?>
-        <tr>
-          <td data-label="Conteo"><b><?= P::e($c['nombre'] ?: ('Conteo #' . (int)$c['id'])) ?></b>
-            <small style="display:block;color:var(--lf-tinta-4)"><?= P::e($c['usuario_nombre'] ?: '—') ?></small></td>
-          <td data-label="Almacén"><?= P::e($c['almacen'] ?: '—') ?></td>
-          <td data-label="Capturados" class="text-end lf-mono"><?= (int)$c['capturados'] ?></td>
-          <td data-label="Estado"><span class="badge <?= $c['estado'] === 'cerrado' ? 'bg-success'
-                : ($c['estado'] === 'cancelado' ? 'bg-secondary' : 'bg-warning') ?>">
-            <?= P::e(\LibertyFin\Servicio\Conteo::ESTADOS[$c['estado']] ?? $c['estado']) ?></span></td>
-          <td data-label="Cuándo" class="lf-mono" style="font-size:12px">
-            <?= P::e(date('d/m/y H:i', strtotime($c['cerrado_en'] ?: $c['creado_en']))) ?></td>
-        </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
-</section>
-<?php endif; ?>
-
 <?php else: /* ── Hay uno en curso ── */ ?>
+
+<?php /* Filtros: marca, área y tipo, los mismos de Productos y
+         Existencias. Sirven para contar por partes —hoy los refrescos,
+         mañana la limpieza—: al guardar solo se tocan los renglones que
+         se ven. */ ?>
+<form class="lf-filtros" method="get" action="/inventario">
+  <input type="hidden" name="t" value="conteo">
+  <input type="hidden" name="s" value="<?= (int)$sucursal ?>">
+  <div class="lf-search">
+    <?= W::icono('buscar','15px') ?>
+    <input type="search" name="q" value="<?= P::e($buscarC) ?>" placeholder="Producto o código">
+  </div>
+  <?php P::parcial('parciales/filtros-producto', ['opcionesFiltro' => $opcionesFiltro, 'filtro' => $filtro]); ?>
+  <button class="btn btn-secondary btn-sm" type="submit">Filtrar</button>
+  <?php if ($hayFiltroC): ?>
+    <a class="lf-link" href="/inventario?t=conteo&amp;s=<?= (int)$sucursal ?>">Quitar filtros</a>
+  <?php endif; ?>
+  <span style="flex:1"></span>
+  <?php /* La hoja para contar a mano: con lo que dice el sistema y un
+           espacio para escribir. Sale con los mismos filtros. */ ?>
+  <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener"
+     href="/inventario/imprimir?<?= P::e(http_build_query(['que' => 'conteo', 'id' => (int)$conteo['id'], 'hoja' => 1,
+                                                          's' => (int)$sucursal, 'auto' => 1] + $qConteoFiltro)) ?>"
+     title="Imprimir la lista para contar a mano">
+    <?= W::icono('descargar','14px') ?> Hoja para contar</a>
+</form>
+
 <section class="card">
   <div class="card-header"><span>
     <h3 class="card-title"><?= P::e($conteo['nombre'] ?: ('Conteo #' . (int)$conteo['id'])) ?>
@@ -555,13 +624,24 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
       Llevas <b><?= (int)$avance['capturados'] ?></b> de <?= (int)$avance['total'] ?>
       <?php if ((int)$avance['diferencias']): ?> · <?= (int)$avance['diferencias'] ?> con diferencia<?php endif; ?>.
       <b>Nada se ajusta hasta que finalices</b>, así que la caja puede seguir cobrando.
+      <a class="lf-link" href="/inventario/conteo/ver?id=<?= (int)$conteo['id'] ?>">Ver lo contado</a>
     </small>
+    <?php if ($hayFiltroC): ?>
+      <small class="lf-inv-sub" style="display:block;margin-top:4px;color:var(--lf-amb)">
+        Con el filtro se ven <?= count($listado) ?> productos. Al guardar solo se tocan esos renglones;
+        lo que ya contaste de los demás sigue guardado.</small>
+    <?php endif; ?>
   </span></div>
 
   <form method="post" action="/inventario/conteo" id="formConteo">
     <input type="hidden" name="token" value="<?= P::e($token) ?>">
     <input type="hidden" name="sucursal_id" value="<?= (int)$sucursal ?>">
     <input type="hidden" name="conteo_id" value="<?= (int)$conteo['id'] ?>">
+    <?php /* Para volver a la misma lista filtrada después de guardar. */ ?>
+    <input type="hidden" name="f_q" value="<?= P::e($buscarC) ?>">
+    <input type="hidden" name="f_marca" value="<?= P::e($filtro['marca'] ?? '') ?>">
+    <input type="hidden" name="f_area" value="<?= (int)($filtro['area'] ?? 0) ?: '' ?>">
+    <input type="hidden" name="f_tipo" value="<?= P::e($filtro['tipo'] ?? '') ?>">
 
     <div style="padding:12px 18px 0">
       <label class="form-label" for="cBuscar">Busca o escanea para saltar al producto</label>
@@ -573,21 +653,26 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
       <table class="table lf-inv-tabla lf-conteo">
         <thead><tr><th>Producto</th><th class="text-end">El sistema dice</th><th class="text-end">Contaste</th><th class="text-end">Diferencia</th></tr></thead>
         <tbody>
+        <?php if (!$listado): ?>
+          <tr><td colspan="4" class="lf-inv-vacio">Nada coincide con el filtro.</td></tr>
+        <?php endif; ?>
         <?php foreach ($listado as $p):
           $id  = (int)$p['id'];
           // Lo que hay EN EL ALMACÉN que se cuenta, no en toda la tienda.
           $hay = $enAlmacen[$id] ?? 0.0;
           $ya  = $capturado[$id]['contado'] ?? null;
         ?>
-          <tr data-hay="<?= P::e(I::num($hay)) ?>"
+          <tr data-hay="<?= P::e($numIn($hay)) ?>"
               data-busca="<?= P::e(mb_strtolower($p['codigo'] . ' ' . $p['nombre'] . ' ' . ($p['codigo_barras'] ?? ''))) ?>">
             <td data-label="Producto"><b class="lf-inv-nom"><?= P::e($p['nombre']) ?></b>
-              <small class="lf-inv-cod"><?= P::e($p['codigo']) ?></small></td>
+              <small class="lf-inv-cod"><?= P::e($p['codigo']) ?><?php
+                foreach (array_filter([$p['marca'] ?? '', $p['categoria'] ?? '']) as $extra): ?> · <?= P::e($extra) ?><?php endforeach; ?></small></td>
             <td data-label="Sistema" class="text-end lf-mono"><?= P::e($conU($hay, $p['unidad_medida'])) ?></td>
             <td data-label="Contaste" class="text-end">
               <input class="form-control form-control-sm lf-mono lf-conteo-in" type="number" step="0.001" min="0"
                      name="contado[<?= $id ?>]" inputmode="decimal"
-                     value="<?= $ya !== null ? P::e(I::num((float)$ya)) : '' ?>"
+                     value="<?= $ya !== null ? P::e($numIn((float)$ya)) : '' ?>"
+                     <?= $ya !== null ? 'data-guardado="1"' : '' ?>
                      aria-label="Contaste de <?= P::e($p['nombre']) ?>"></td>
             <td data-label="Diferencia" class="text-end lf-mono lf-conteo-dif">–</td>
           </tr>
@@ -614,6 +699,8 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
               style="color:var(--lf-malo,#c0392b)"
               data-confirmar="Se pierde lo capturado y no se ajusta ninguna existencia. ¿Cancelar el conteo?">
         Cancelar</button>
+      <p class="pista" style="flex:0 0 100%;margin:0">Para quitar un producto del conteo, borra su número y guarda.
+        Un 0 sí cuenta: quiere decir que no hay ninguno.</p>
     </div>
   </form>
   <script>
@@ -622,18 +709,23 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
     if (!f) return;
     function num(n){ return (Math.round(n * 1000) / 1000).toLocaleString('es-MX', {maximumFractionDigits:3}); }
     function pintar(){
-      var n = 0, d = 0;
+      var n = 0, d = 0, q = 0;
       f.querySelectorAll('tr[data-hay]').forEach(function(tr){
         var i = tr.querySelector('.lf-conteo-in'), c = tr.querySelector('.lf-conteo-dif');
-        if (i.value === '') { c.textContent = '–'; c.className = 'text-end lf-mono lf-conteo-dif'; return; }
+        if (i.value === '') {
+          // Tenía número y se borró: al guardar se quita del conteo.
+          if (i.dataset.guardado) { q++; c.textContent = 'Se quitará'; c.className = 'text-end lf-mono lf-conteo-dif menos'; }
+          else { c.textContent = '–'; c.className = 'text-end lf-mono lf-conteo-dif'; }
+          return;
+        }
         var dif = (parseFloat(i.value) || 0) - (parseFloat(String(tr.dataset.hay).replace(/,/g, '')) || 0);
         n++; if (Math.abs(dif) >= 0.0005) d++;
         c.textContent = Math.abs(dif) < 0.0005 ? 'Cuadra' : (dif > 0 ? '+' : '−') + num(Math.abs(dif));
         c.className = 'text-end lf-mono lf-conteo-dif ' + (Math.abs(dif) < 0.0005 ? 'ok' : (dif > 0 ? 'mas' : 'menos'));
       });
-      document.getElementById('conteoCuenta').textContent = n
+      document.getElementById('conteoCuenta').textContent = (n
         ? n + (n === 1 ? ' producto contado' : ' productos contados') + (d ? ' · ' + d + ' con diferencia' : ' · todo cuadra')
-        : 'Nada capturado todavía.';
+        : 'Nada capturado en esta lista.') + (q ? ' · ' + q + ' por quitar' : '');
     }
     f.addEventListener('input', pintar);
     // Enter pasa al siguiente: se cuenta con el teclado, sin mouse.
@@ -643,6 +735,15 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
       var todos = [].slice.call(f.querySelectorAll('.lf-conteo-in')), i = todos.indexOf(e.target);
       if (todos[i + 1]) todos[i + 1].focus();
     });
+    /* La rueda del ratón sobre una casilla numérica con el cursor adentro
+       le SUMA o le RESTA: se escribía 12, se bajaba la página y quedaba
+       en 9 sin que nadie lo notara. Al girar la rueda se suelta la casilla
+       y la página baja, que es lo que se quería. */
+    f.addEventListener('wheel', function(e){
+      if (e.target.classList && e.target.classList.contains('lf-conteo-in') && document.activeElement === e.target) {
+        e.target.blur();
+      }
+    }, {passive: true});
 
     /* Buscar o escanear salta al renglón y pone el cursor en su casilla.
        En una tienda con cuatrocientos productos, bajar con el ratón
@@ -679,20 +780,76 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
 </section>
 <?php endif; ?>
 
-<?php else: /* ═══════════ MOVIMIENTOS ═══════════ */ ?>
+<?php if (!empty($recientes)): ?>
+<section class="card">
+  <div class="card-header"><span><h3 class="card-title">Conteos anteriores</h3>
+    <small class="lf-inv-sub">Ábrelo para ver qué se contó, contra qué y cuánto salió de diferencia, o descárgalo en PDF.</small></span></div>
+  <div class="table-responsive lf-cards" style="padding:0 12px 6px">
+    <table class="table">
+      <thead><tr><th>Conteo</th><th>Almacén</th><th class="text-end">Capturados</th><th>Estado</th><th>Cuándo</th><th></th></tr></thead>
+      <tbody>
+      <?php foreach ($recientes as $c): ?>
+        <tr>
+          <td data-label="Conteo"><a href="/inventario/conteo/ver?id=<?= (int)$c['id'] ?>"><b><?= P::e($c['nombre'] ?: ('Conteo #' . (int)$c['id'])) ?></b></a>
+            <small style="display:block;color:var(--lf-tinta-4)">#<?= (int)$c['id'] ?> · <?= P::e($c['usuario_nombre'] ?: '—') ?></small></td>
+          <td data-label="Almacén"><?= P::e($c['almacen'] ?: '—') ?></td>
+          <td data-label="Capturados" class="text-end lf-mono"><?= (int)$c['capturados'] ?></td>
+          <td data-label="Estado"><span class="badge <?= $c['estado'] === 'cerrado' ? 'bg-success'
+                : ($c['estado'] === 'cancelado' ? 'bg-secondary' : 'bg-warning') ?>">
+            <?= P::e(\LibertyFin\Servicio\Conteo::ESTADOS[$c['estado']] ?? $c['estado']) ?></span></td>
+          <td data-label="Cuándo" class="lf-mono" style="font-size:12px">
+            <?= P::e(date('d/m/y H:i', strtotime($c['cerrado_en'] ?: $c['creado_en']))) ?></td>
+          <td class="lf-inv-acc">
+            <a class="btn btn-secondary btn-sm" href="/inventario/conteo/ver?id=<?= (int)$c['id'] ?>">Ver</a>
+            <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener"
+               href="/inventario/imprimir?que=conteo&amp;id=<?= (int)$c['id'] ?>&amp;auto=1"
+               title="Descargar en PDF"><?= W::icono('descargar','14px') ?></a>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</section>
+<?php endif; ?>
+
+<?php else: /* ═══════════ MOVIMIENTOS ═══════════ */
+// Los filtros vigentes, para que las pastillas de tipo y el PDF no los pierdan.
+$qMov = array_filter(['t' => 'movimientos',
+                      's' => $filtros['sucursal'] ? (string)(int)$filtros['sucursal'] : '0',
+                      'q' => $filtros['q'], 'desde' => $filtros['desde'], 'hasta' => $filtros['hasta'],
+                      'tipo' => $filtros['tipo']], function ($v) { return $v !== ''; });
+$conTipo = function ($tipo) use ($qMov) {
+    $q = $qMov;
+    if ($tipo === '') unset($q['tipo']); else $q['tipo'] = $tipo;
+    return '/inventario?' . http_build_query($q);
+};
+// Las que más se buscan, a un clic: cuándo se registró, se vendió, entró o salió.
+$rapidos = ['' => 'Todos', 'inicial' => 'Registro', 'venta' => 'Ventas', 'entrada' => 'Entradas',
+            'salida' => 'Salidas', 'conteo' => 'Conteos', 'traspaso' => 'Traspasos', 'merma' => 'Mermas',
+            'devolucion' => 'Devoluciones'];
+$res = $resumenMov ?? [];
+$totalRen = 0; foreach ($res as $x) $totalRen += (int)$x['renglones'];
+$colsMov = 10 + ($varias ? 1 : 0);
+?>
+
+<div class="lf-pills lf-mov-tipos" aria-label="Tipo de movimiento" style="margin-bottom:12px">
+  <?php foreach ($rapidos as $k => $t):
+    $n = $k === '' ? $totalRen : (int)($res[$k]['renglones'] ?? 0);
+    // Registro, ventas, entradas y salidas siempre están a la vista; las
+    // devoluciones solo cuando hay.
+    if ($k === 'devolucion' && !$n && $filtros['tipo'] !== $k) continue; ?>
+    <a class="lf-pill <?= $filtros['tipo'] === $k ? 'active' : '' ?>" href="<?= P::e($conTipo($k)) ?>"><?= P::e($t) ?><?php if ($n): ?><span class="n"><?= number_format($n) ?></span><?php endif; ?></a>
+  <?php endforeach; ?>
+</div>
 
 <form class="lf-filtros" method="get" action="/inventario">
   <input type="hidden" name="t" value="movimientos">
+  <?php if ($filtros['tipo'] !== ''): ?><input type="hidden" name="tipo" value="<?= P::e($filtros['tipo']) ?>"><?php endif; ?>
   <div class="lf-search">
     <?= W::icono('buscar','15px') ?>
     <input type="search" name="q" value="<?= P::e($filtros['q']) ?>" placeholder="Producto o código">
   </div>
-  <select class="form-select form-select-sm" name="tipo" style="width:auto" aria-label="Tipo de movimiento">
-    <option value="">Todos los movimientos</option>
-    <?php foreach (I::TIPOS as $k => $t): ?>
-      <option value="<?= $k ?>" <?= $filtros['tipo'] === $k ? 'selected' : '' ?>><?= P::e($t) ?></option>
-    <?php endforeach; ?>
-  </select>
   <?php if ($varias): ?>
   <select class="form-select form-select-sm" name="s" style="width:auto" aria-label="Sucursal">
     <option value="0" <?= !$filtros['sucursal'] ? 'selected' : '' ?>>Todas las sucursales</option>
@@ -704,28 +861,84 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
   <input class="form-control form-control-sm" type="date" name="desde" value="<?= P::e($filtros['desde']) ?>" style="width:auto" aria-label="Desde">
   <input class="form-control form-control-sm" type="date" name="hasta" value="<?= P::e($filtros['hasta']) ?>" style="width:auto" aria-label="Hasta">
   <button class="btn btn-secondary btn-sm" type="submit">Filtrar</button>
+  <span style="flex:1"></span>
+  <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener"
+     href="/inventario/imprimir?<?= P::e(http_build_query(['que' => 'movimientos', 'auto' => 1] + $qMov)) ?>"
+     title="Los movimientos filtrados, para imprimir o guardar como PDF">
+    <?= W::icono('descargar','14px') ?> Descargar PDF</a>
 </form>
+
+<?php /* ENTRADAS Y SALIDAS DESGLOSADAS.
+         Cuánto entró y cuánto salió en el periodo, por tipo. Sin esto,
+         para saber cuánto se vendió contra cuánto llegó había que sumar
+         la tabla a mano. */
+if ($res): $entroT = 0.0; $salioT = 0.0; ?>
+<details class="card lf-mov-desglose" <?= $filtros['tipo'] === '' ? 'open' : '' ?>>
+  <summary class="card-header" style="cursor:pointer"><span>
+    <h3 class="card-title">Entradas y salidas desglosadas</h3>
+    <small class="lf-inv-sub">Del <?= P::e(date('d/m/Y', strtotime($filtros['desde']))) ?>
+      al <?= P::e(date('d/m/Y', strtotime($filtros['hasta']))) ?>, con los filtros de arriba (sin el tipo).</small>
+  </span></summary>
+  <div class="table-responsive lf-cards" style="padding:0 12px 6px">
+    <table class="table lf-inv-tabla">
+      <thead><tr><th>Tipo</th><th class="text-end">Entró</th><th class="text-end">Salió</th><th class="text-end">Movimientos</th></tr></thead>
+      <tbody>
+      <?php foreach (I::TIPOS as $k => $t): if (empty($res[$k])) continue;
+        $x = $res[$k]; $entroT += $x['entro']; $salioT += $x['salio']; ?>
+        <tr>
+          <td data-label="Tipo"><a href="<?= P::e($conTipo($k)) ?>"><span class="lf-inv-tipo t-<?= P::e($k) ?>"><?= P::e($t) ?></span></a></td>
+          <td data-label="Entró" class="text-end lf-mono lf-inv-cant mas"><?= $x['entro'] > 0 ? '+' . P::e(I::num($x['entro'])) : '–' ?></td>
+          <td data-label="Salió" class="text-end lf-mono lf-inv-cant menos"><?= $x['salio'] > 0 ? '−' . P::e(I::num($x['salio'])) : '–' ?></td>
+          <td data-label="Movimientos" class="text-end lf-mono"><?= number_format($x['renglones']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+      <tfoot><tr>
+        <td><b>Total</b></td>
+        <td class="text-end lf-mono lf-inv-cant mas"><b>+<?= P::e(I::num($entroT)) ?></b></td>
+        <td class="text-end lf-mono lf-inv-cant menos"><b>−<?= P::e(I::num($salioT)) ?></b></td>
+        <td class="text-end lf-mono"><b><?= number_format($totalRen) ?></b></td>
+      </tr></tfoot>
+    </table>
+  </div>
+</details>
+<?php endif; ?>
 
 <section class="card">
   <div class="table-responsive lf-cards" style="padding:0 12px 6px">
-    <table class="table table-hover lf-inv-tabla">
+    <table class="table table-hover lf-inv-tabla lf-mov-tabla">
       <thead><tr>
         <th>Cuándo</th><th>Producto</th><th>Movimiento</th>
-        <th class="text-end">Cantidad</th><th class="text-end">Quedó</th><th>Detalle</th>
+        <?php if ($varias): ?><th>Sucursal</th><?php endif; ?>
+        <th title="Piso, bodega… En un traspaso: de dónde a dónde">Almacén</th>
+        <th class="text-end" title="Lo que había en ese almacén antes">Había</th>
+        <th class="text-end">Cantidad</th>
+        <th class="text-end" title="Lo que quedó en ese almacén">Quedó</th>
+        <th class="text-end" title="El total de la sucursal después del movimiento">En la sucursal</th>
+        <th>Detalle</th><th></th>
       </tr></thead>
       <tbody>
       <?php if (!$movimientos): ?>
-        <tr><td colspan="6" class="lf-inv-vacio">No hay movimientos en estas fechas.</td></tr>
+        <tr><td colspan="<?= $colsMov ?>" class="lf-inv-vacio">No hay movimientos en estas fechas.</td></tr>
       <?php endif; ?>
-      <?php foreach ($movimientos as $m): $c = (float)$m['cantidad']; ?>
+      <?php foreach ($movimientos as $m):
+        $c = (float)$m['cantidad'];
+        $esTr = $m['tipo'] === 'traspaso';
+        $tot = $m['existencia_sucursal'] ?? null; ?>
         <tr>
           <td data-label="Cuándo" class="lf-inv-fecha"><?= P::e(date('d/m/Y H:i', strtotime($m['creado_en']))) ?>
-            <small><?= P::e($m['usuario_nombre'] ?: '—') ?><?= $varias && !$filtros['sucursal'] ? ' · ' . P::e($m['sucursal']) : '' ?></small></td>
-          <td data-label="Producto"><b class="lf-inv-nom"><?= P::e($m['producto'] ?: '(ya no existe)') ?></b></td>
-          <td data-label="Movimiento"><span class="lf-inv-tipo t-<?= P::e($m['tipo']) ?>"><?= P::e(I::TIPOS[$m['tipo']] ?? $m['tipo']) ?></span></td>
-          <td data-label="Cantidad" class="text-end lf-mono lf-inv-cant <?= $c > 0 ? 'mas' : ($c < 0 ? 'menos' : '') ?>">
+            <small><?= P::e($m['usuario_nombre'] ?: '—') ?></small></td>
+          <td data-label="Producto"><b class="lf-inv-nom"><?= P::e($m['producto'] ?: '(ya no existe)') ?></b>
+            <small class="lf-inv-cod"><?= P::e($m['codigo'] ?? '') ?></small></td>
+          <td data-label="Movimiento"><span class="lf-inv-tipo t-<?= P::e($m['tipo']) ?>"><?= P::e(I::TIPOS[$m['tipo']] ?? $m['tipo']) ?></span>
+            <?php if ($esTr): ?><small class="lf-inv-cod" style="display:block"><?= $c < 0 ? 'Se fue' : 'Llegó' ?></small><?php endif; ?></td>
+          <?php if ($varias): ?><td data-label="Sucursal"><?= P::e($m['sucursal'] ?: '—') ?></td><?php endif; ?>
+          <td data-label="Almacén"><?= P::e(I::rutaAlmacen($m) ?: '—') ?></td>
+          <td data-label="Había" class="text-end lf-mono"><?= P::e(I::num(I::habia($m))) ?></td>
+          <td data-label="<?= $esTr ? ($c < 0 ? 'Se fue' : 'Llegó') : 'Cantidad' ?>" class="text-end lf-mono lf-inv-cant <?= $c > 0 ? 'mas' : ($c < 0 ? 'menos' : '') ?>">
             <?= $c > 0 ? '+' : ($c < 0 ? '−' : '') ?><?= P::e(I::num(abs($c))) ?></td>
           <td data-label="Quedó" class="text-end lf-mono"><?= P::e($conU($m['existencia'], $m['unidad_medida'])) ?></td>
+          <td data-label="En la sucursal" class="text-end lf-mono"><?= $tot !== null && $tot !== '' ? P::e(I::num($tot)) : '<span style="color:var(--lf-tinta-4)">–</span>' ?></td>
           <td data-label="Detalle" class="lf-inv-det">
             <?php if ($m['venta_id']): ?>
               <a href="/ventas/<?= (int)$m['venta_id'] ?>">Venta <?= P::e($m['codigo_venta'] ?: '#' . $m['venta_id']) ?></a>
@@ -734,13 +947,16 @@ $pausado  = $enCurso && $conteo['estado'] === 'pausado';
             <?php if ($m['costo'] !== null): ?><span><?= D::pesos($m['costo']) ?> c/u</span><?php endif; ?>
             <?php if ($m['nota']): ?><span><?= P::e($m['nota']) ?></span><?php endif; ?>
           </td>
+          <td class="lf-inv-acc"><a class="btn btn-secondary btn-sm" href="/inventario/movimiento?id=<?= (int)$m['id'] ?>"
+               title="Ver el detalle y descargarlo en PDF">Ver</a></td>
         </tr>
       <?php endforeach; ?>
       </tbody>
     </table>
   </div>
   <?php if (count($movimientos) >= 300): ?>
-    <div class="card-footer">Se muestran los 300 más recientes. Acorta las fechas para ver los demás.</div>
+    <div class="card-footer">Se muestran los 300 más recientes. Acorta las fechas para ver los demás
+      (el PDF trae hasta 5,000).</div>
   <?php endif; ?>
 </section>
 
